@@ -14,16 +14,160 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      products: {
+        Row: {
+          barcode: string
+          brand: string | null
+          created_at: string | null
+          id: string
+          image_url: string | null
+          ingredients: string[] | null
+          name: string
+          region: string
+          updated_at: string | null
+        }
+        Insert: {
+          barcode: string
+          brand?: string | null
+          created_at?: string | null
+          id?: string
+          image_url?: string | null
+          ingredients?: string[] | null
+          name: string
+          region?: string
+          updated_at?: string | null
+        }
+        Update: {
+          barcode?: string
+          brand?: string | null
+          created_at?: string | null
+          id?: string
+          image_url?: string | null
+          ingredients?: string[] | null
+          name?: string
+          region?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      reports: {
+        Row: {
+          comment: string | null
+          created_at: string | null
+          id: string
+          photo_url: string | null
+          product_id: string | null
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          photo_url?: string | null
+          product_id?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          photo_url?: string | null
+          product_id?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reports_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      verdicts: {
+        Row: {
+          analysis_notes: string | null
+          confidence_score: number | null
+          created_at: string | null
+          flagged_ingredients: string[] | null
+          id: string
+          product_id: string
+          updated_at: string | null
+          verdict: string
+        }
+        Insert: {
+          analysis_notes?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          flagged_ingredients?: string[] | null
+          id?: string
+          product_id: string
+          updated_at?: string | null
+          verdict: string
+        }
+        Update: {
+          analysis_notes?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          flagged_ingredients?: string[] | null
+          id?: string
+          product_id?: string
+          updated_at?: string | null
+          verdict?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verdicts_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +294,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const
