@@ -2,12 +2,14 @@ import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Camera, Search, ScanBarcode } from "lucide-react";
-import { useState } from "react";
+import { Camera, Search, ScanBarcode, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { Html5Qrcode } from "html5-qrcode";
 
 export default function Home() {
   const navigate = useNavigate();
@@ -15,28 +17,127 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [region, setRegion] = useState("global");
   const [isScanning, setIsScanning] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
+  const [scannerDialog, setScannerDialog] = useState(false);
 
-  const handleBarcodeSearch = async () => {
-    if (!barcode.trim()) {
+  const handleBarcodeSearch = async (barcodeValue?: string) => {
+    const searchBarcode = barcodeValue || barcode.trim();
+    
+    if (!searchBarcode) {
       toast.error("Please enter a barcode");
       return;
     }
 
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .eq("barcode", barcode.trim())
-      .maybeSingle();
+    setIsFetching(true);
 
-    if (error) {
-      toast.error("Failed to search product");
-      return;
-    }
+    try {
+      // Step 1: Check local database
+      const { data: localProduct, error: localError } = await supabase
+        .from("products")
+        .select("*")
+        .eq("barcode", searchBarcode)
+        .maybeSingle();
 
-    if (data) {
-      navigate(`/results/${data.id}`);
-    } else {
-      toast.error("Product not found. Try searching by name or add it to our database.");
+      if (localError) {
+        throw localError;
+      }
+
+      if (localProduct) {
+        navigate(`/results/${localProduct.id}`);
+        setIsFetching(false);
+        return;
+      }
+
+      // Step 2: Fetch from Open Food Facts
+      toast.info("Searching global product database...");
+      const { data: externalProduct, error: fetchError } = await supabase.functions.invoke(
+        'fetch-product-data',
+        { body: { barcode: searchBarcode } }
+      );
+
+      if (fetchError) {
+        throw fetchError;
+      }
+
+      if (!externalProduct.found) {
+        toast.error("Product not found. Try a different barcode or add it manually.");
+        setIsFetching(false);
+        return;
+      }
+
+      // Step 3: Analyze with Lovable AI
+      toast.info("Analyzing ingredients with AI...");
+      const { data: aiAnalysis, error: aiError } = await supabase.functions.invoke(
+        'analyze-ingredients-ai',
+        { 
+          body: { 
+            productName: externalProduct.name,
+            ingredients: externalProduct.ingredientsList.length > 0 
+              ? externalProduct.ingredientsList 
+              : externalProduct.ingredients,
+            brand: externalProduct.brand,
+            region: externalProduct.region
+          } 
+        }
+      );
+
+      if (aiError) {
+        console.error('AI analysis error:', aiError);
+        toast.warning("Product found but AI analysis failed. Using basic analysis.");
+      }
+
+      // Step 4: Save product to database
+      const { data: newProduct, error: insertError } = await supabase
+        .from("products")
+        .insert({
+          barcode: externalProduct.barcode,
+          name: externalProduct.name,
+          brand: externalProduct.brand,
+          ingredients: externalProduct.ingredientsList.length > 0 
+            ? externalProduct.ingredientsList 
+            : [externalProduct.ingredients],
+          image_url: externalProduct.imageUrl,
+          region: externalProduct.region
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      // Step 5: Save verdict with AI analysis
+      await supabase.from("verdicts").insert({
+        product_id: newProduct.id,
+        verdict: aiAnalysis?.verdict || 'questionable',
+        confidence_score: aiAnalysis?.confidence_score || 50,
+        analysis_notes: aiAnalysis?.analysis_notes || 'Automated analysis',
+        flagged_ingredients: aiAnalysis?.flagged_ingredients || null,
+        analysis_method: aiAnalysis ? 'ai_analysis' : 'rules_engine',
+        external_source: 'open_food_facts',
+        ai_explanation: aiAnalysis?.ai_explanation || null
+      });
+
+      // Step 6: Save to cache
+      try {
+        await supabase.from("product_cache").insert({
+          barcode: externalProduct.barcode,
+          external_data: externalProduct.rawData,
+          source: 'open_food_facts'
+        });
+      } catch (cacheError) {
+        // Ignore cache errors (non-critical)
+        console.log('Cache insert failed (non-critical)', cacheError);
+      }
+
+      toast.success("Product added and analyzed!");
+      navigate(`/results/${newProduct.id}`);
+
+    } catch (error) {
+      console.error("Search error:", error);
+      toast.error("Failed to search product. Please try again.");
+    } finally {
+      setIsFetching(false);
     }
   };
 
@@ -62,14 +163,55 @@ export default function Home() {
     if (data) {
       navigate(`/results/${data.id}`);
     } else {
-      toast.error("Product not found. Try a different search term.");
+      toast.error("Product not found in our database. Try scanning a barcode instead.");
     }
   };
 
-  const handleScanBarcode = () => {
+  const startScanner = async () => {
     setIsScanning(true);
-    toast.info("Camera scanning feature coming soon! For now, please enter barcode manually.");
-    setTimeout(() => setIsScanning(false), 2000);
+    setScannerDialog(true);
+
+    try {
+      const html5QrCode = new Html5Qrcode("reader");
+      
+      await html5QrCode.start(
+        { facingMode: "environment" },
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 }
+        },
+        async (decodedText) => {
+          // Stop scanning
+          await html5QrCode.stop();
+          setScannerDialog(false);
+          setIsScanning(false);
+          
+          // Search with scanned barcode
+          toast.success("Barcode scanned!");
+          setBarcode(decodedText);
+          await handleBarcodeSearch(decodedText);
+        },
+        (errorMessage) => {
+          // Ignore errors during scanning
+        }
+      );
+    } catch (error) {
+      console.error("Scanner error:", error);
+      toast.error("Failed to start camera. Please check permissions.");
+      setScannerDialog(false);
+      setIsScanning(false);
+    }
+  };
+
+  const stopScanner = async () => {
+    try {
+      const html5QrCode = new Html5Qrcode("reader");
+      await html5QrCode.stop();
+    } catch (error) {
+      // Ignore stop errors
+    }
+    setScannerDialog(false);
+    setIsScanning(false);
   };
 
   return (
@@ -88,7 +230,7 @@ export default function Home() {
                 Verify Halal Products Instantly
               </h1>
               <p className="text-lg md:text-xl text-primary-foreground/90">
-                Scan barcodes or search products to check ingredients against halal standards
+                Scan barcodes or search products to check ingredients with AI-powered analysis
               </p>
             </div>
           </div>
@@ -122,8 +264,8 @@ export default function Home() {
               <div className="space-y-3">
                 <label className="text-sm font-medium text-foreground">Scan Barcode</label>
                 <Button 
-                  onClick={handleScanBarcode}
-                  disabled={isScanning}
+                  onClick={startScanner}
+                  disabled={isScanning || isFetching}
                   className="w-full h-14 text-lg bg-primary hover:bg-primary-dark"
                   size="lg"
                 >
@@ -152,9 +294,10 @@ export default function Home() {
                     onChange={(e) => setBarcode(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleBarcodeSearch()}
                     className="flex-1"
+                    disabled={isFetching}
                   />
-                  <Button onClick={handleBarcodeSearch} size="lg">
-                    <ScanBarcode className="h-5 w-5" />
+                  <Button onClick={() => handleBarcodeSearch()} size="lg" disabled={isFetching}>
+                    {isFetching ? <Loader2 className="h-5 w-5 animate-spin" /> : <ScanBarcode className="h-5 w-5" />}
                   </Button>
                 </div>
               </div>
@@ -179,12 +322,20 @@ export default function Home() {
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleProductSearch()}
                     className="flex-1"
+                    disabled={isFetching}
                   />
-                  <Button onClick={handleProductSearch} size="lg">
+                  <Button onClick={handleProductSearch} size="lg" disabled={isFetching}>
                     <Search className="h-5 w-5" />
                   </Button>
                 </div>
               </div>
+
+              {isFetching && (
+                <div className="text-center py-4">
+                  <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+                  <p className="text-sm text-muted-foreground mt-2">Searching and analyzing product...</p>
+                </div>
+              )}
             </div>
           </Card>
 
@@ -194,28 +345,46 @@ export default function Home() {
               <div className="w-12 h-12 bg-halal-bg rounded-full flex items-center justify-center mx-auto">
                 <ScanBarcode className="h-6 w-6 text-halal" />
               </div>
-              <h3 className="font-semibold text-lg">Fast Scanning</h3>
-              <p className="text-sm text-muted-foreground">Instant barcode recognition and product lookup</p>
+              <h3 className="font-semibold text-lg">Global Database</h3>
+              <p className="text-sm text-muted-foreground">Access to 2M+ products from Open Food Facts</p>
             </Card>
             
             <Card className="p-6 text-center space-y-3 border-primary/20 hover:border-primary/40 transition-colors">
               <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
                 <Search className="h-6 w-6 text-primary" />
               </div>
-              <h3 className="font-semibold text-lg">Smart Analysis</h3>
-              <p className="text-sm text-muted-foreground">AI-powered ingredient checking against halal standards</p>
+              <h3 className="font-semibold text-lg">AI-Powered Analysis</h3>
+              <p className="text-sm text-muted-foreground">Advanced ingredient checking with Lovable AI</p>
             </Card>
             
             <Card className="p-6 text-center space-y-3 border-primary/20 hover:border-primary/40 transition-colors">
               <div className="w-12 h-12 bg-secondary/10 rounded-full flex items-center justify-center mx-auto">
                 <Camera className="h-6 w-6 text-secondary" />
               </div>
-              <h3 className="font-semibold text-lg">User Reports</h3>
-              <p className="text-sm text-muted-foreground">Community-driven verification and updates</p>
+              <h3 className="font-semibold text-lg">Real Barcode Scanning</h3>
+              <p className="text-sm text-muted-foreground">Instant camera-based barcode recognition</p>
             </Card>
           </div>
         </div>
       </div>
+
+      {/* Scanner Dialog */}
+      <Dialog open={scannerDialog} onOpenChange={(open) => !open && stopScanner()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Scan Barcode</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div id="reader" className="w-full"></div>
+            <p className="text-sm text-muted-foreground text-center">
+              Point your camera at the product barcode
+            </p>
+            <Button variant="outline" onClick={stopScanner} className="w-full">
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }

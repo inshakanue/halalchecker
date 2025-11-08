@@ -6,7 +6,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, AlertTriangle, CheckCircle2, HelpCircle, Flag } from "lucide-react";
+import { ArrowLeft, AlertTriangle, CheckCircle2, HelpCircle, Flag, ExternalLink, Sparkles, Activity } from "lucide-react";
 
 interface Product {
   id: string;
@@ -27,6 +27,9 @@ interface Verdict {
   cert_body: string | null;
   cert_country: string | null;
   cert_link: string | null;
+  analysis_method?: string;
+  external_source?: string;
+  ai_explanation?: string;
 }
 
 export default function Results() {
@@ -139,7 +142,8 @@ export default function Results() {
           is_certified: false,
           cert_body: null,
           cert_country: null,
-          cert_link: null
+          cert_link: null,
+          analysis_method: 'rules_engine'
         };
       }
     }
@@ -168,7 +172,8 @@ export default function Results() {
       is_certified: false,
       cert_body: null,
       cert_country: null,
-      cert_link: null
+      cert_link: null,
+      analysis_method: 'rules_engine'
     };
   };
 
@@ -218,6 +223,31 @@ export default function Results() {
           icon: HelpCircle,
           label: "Unknown",
         };
+    }
+  };
+
+  const getAnalysisMethodBadge = (method?: string) => {
+    switch (method) {
+      case 'ai_analysis':
+        return (
+          <Badge className="bg-primary/10 text-primary border-primary/20">
+            <Sparkles className="h-3 w-3 mr-1" />
+            AI Analysis
+          </Badge>
+        );
+      case 'manual':
+        return (
+          <Badge className="bg-secondary/10 text-secondary border-secondary/20">
+            Manual Review
+          </Badge>
+        );
+      default:
+        return (
+          <Badge variant="outline">
+            <Activity className="h-3 w-3 mr-1" />
+            Rules Engine
+          </Badge>
+        );
     }
   };
 
@@ -275,9 +305,16 @@ export default function Results() {
               </div>
               <div className="flex-1 text-center md:text-left space-y-2">
                 <h2 className={`text-3xl font-bold ${styles.text}`}>{styles.label}</h2>
-                <div className="flex items-center gap-3 justify-center md:justify-start">
+                <div className="flex items-center gap-3 justify-center md:justify-start flex-wrap">
                   <span className="text-2xl font-semibold text-foreground">{verdict.confidence_score}%</span>
                   <span className="text-sm text-muted-foreground">Confidence</span>
+                  {getAnalysisMethodBadge(verdict.analysis_method)}
+                  {verdict.external_source && (
+                    <Badge variant="outline" className="bg-background">
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      {verdict.external_source === 'open_food_facts' ? 'Open Food Facts' : verdict.external_source}
+                    </Badge>
+                  )}
                 </div>
               </div>
             </div>
@@ -312,6 +349,17 @@ export default function Results() {
                   <div>
                     <p className="text-sm font-medium text-foreground">Barcode</p>
                     <p className="text-muted-foreground">{product.barcode}</p>
+                    {verdict.external_source === 'open_food_facts' && (
+                      <a 
+                        href={`https://world.openfoodfacts.org/product/${product.barcode}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-primary hover:underline inline-flex items-center gap-1 mt-1"
+                      >
+                        View on Open Food Facts
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
                   </div>
                 )}
 
@@ -337,6 +385,21 @@ export default function Results() {
             <h3 className="font-semibold text-lg mb-3 text-foreground">Why this verdict?</h3>
             <p className="text-muted-foreground leading-relaxed">{getVerdictMessage()}</p>
           </Card>
+
+          {/* AI Explanation */}
+          {verdict.ai_explanation && verdict.analysis_method === 'ai_analysis' && (
+            <Card className="p-6 bg-primary/5 border-primary/20">
+              <div className="flex items-start gap-3">
+                <Sparkles className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
+                <div className="space-y-2 flex-1">
+                  <h3 className="font-semibold text-lg text-foreground">AI Detailed Analysis</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                    {verdict.ai_explanation}
+                  </p>
+                </div>
+              </div>
+            </Card>
+          )}
 
           {/* Ingredients */}
           <Card className="p-6">

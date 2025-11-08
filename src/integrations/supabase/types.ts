@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      product_cache: {
+        Row: {
+          barcode: string
+          created_at: string
+          external_data: Json
+          id: string
+          last_fetched_at: string
+          source: string
+        }
+        Insert: {
+          barcode: string
+          created_at?: string
+          external_data: Json
+          id?: string
+          last_fetched_at?: string
+          source?: string
+        }
+        Update: {
+          barcode?: string
+          created_at?: string
+          external_data?: Json
+          id?: string
+          last_fetched_at?: string
+          source?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           barcode: string
@@ -114,43 +141,55 @@ export type Database = {
       }
       verdicts: {
         Row: {
+          ai_explanation: string | null
+          analysis_method: string | null
           analysis_notes: string | null
           cert_body: string | null
           cert_country: string | null
           cert_link: string | null
           confidence_score: number | null
           created_at: string | null
+          external_source: string | null
           flagged_ingredients: string[] | null
           id: string
           is_certified: boolean | null
+          last_verified_at: string | null
           product_id: string
           updated_at: string | null
           verdict: string
         }
         Insert: {
+          ai_explanation?: string | null
+          analysis_method?: string | null
           analysis_notes?: string | null
           cert_body?: string | null
           cert_country?: string | null
           cert_link?: string | null
           confidence_score?: number | null
           created_at?: string | null
+          external_source?: string | null
           flagged_ingredients?: string[] | null
           id?: string
           is_certified?: boolean | null
+          last_verified_at?: string | null
           product_id: string
           updated_at?: string | null
           verdict: string
         }
         Update: {
+          ai_explanation?: string | null
+          analysis_method?: string | null
           analysis_notes?: string | null
           cert_body?: string | null
           cert_country?: string | null
           cert_link?: string | null
           confidence_score?: number | null
           created_at?: string | null
+          external_source?: string | null
           flagged_ingredients?: string[] | null
           id?: string
           is_certified?: boolean | null
+          last_verified_at?: string | null
           product_id?: string
           updated_at?: string | null
           verdict?: string

@@ -1,1 +1,7 @@
 project_id = "leuuipzutbpdxyxzpzfx"
+
+[functions.fetch-product-data]
+verify_jwt = false
+
+[functions.analyze-ingredients-ai]
+verify_jwt = false
