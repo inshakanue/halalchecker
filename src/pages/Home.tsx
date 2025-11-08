@@ -21,7 +21,8 @@ export default function Home() {
   const navigate = useNavigate();
   const [barcode, setBarcode] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [region, setRegion] = useState("global");
+  const [selectedRegion, setSelectedRegion] = useState("");
+  const [selectedCountry, setSelectedCountry] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [scannerDialog, setScannerDialog] = useState(false);
@@ -120,13 +121,16 @@ export default function Home() {
     setIsSearching(true);
     try {
       toast.info("Searching products...");
+      // Use country if selected, otherwise use region, default to 'world'
+      const searchRegion = selectedCountry || selectedRegion || 'world';
+      
       const {
         data,
         error
       } = await supabase.functions.invoke('search-products-by-name', {
         body: {
           productName: query,
-          region: region === 'global' ? 'world' : region.toLowerCase()
+          region: searchRegion.toLowerCase()
         }
       });
       if (error) {
@@ -220,24 +224,75 @@ export default function Home() {
         <div className="container mx-auto px-4 -mt-8 relative z-10 pb-16">
           <Card className="max-w-2xl mx-auto p-6 md:p-8 shadow-2xl border-2">
             <div className="space-y-6">
-              {/* Region Selector */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Select Region</label>
-                <Select value={region} onValueChange={setRegion}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select region" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="global">Global</SelectItem>
-                    <SelectItem value="US">United States</SelectItem>
-                    <SelectItem value="EU">Europe</SelectItem>
-                    <SelectItem value="UAE">UAE</SelectItem>
-                    <SelectItem value="MY">Malaysia</SelectItem>
-                    <SelectItem value="ID">Indonesia</SelectItem>
-                    <SelectItem value="IN">India</SelectItem>
-                    <SelectItem value="SEA">South East Asia</SelectItem>
-                  </SelectContent>
-                </Select>
+              {/* Region and Country Selectors */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Region (Optional)</label>
+                  <Select value={selectedRegion} onValueChange={setSelectedRegion}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select region" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="world">Global</SelectItem>
+                      <SelectItem value="africa">Africa</SelectItem>
+                      <SelectItem value="asia">Asia</SelectItem>
+                      <SelectItem value="europe">Europe</SelectItem>
+                      <SelectItem value="north-america">North America</SelectItem>
+                      <SelectItem value="south-america">South America</SelectItem>
+                      <SelectItem value="oceania">Oceania</SelectItem>
+                      <SelectItem value="middle-east">Middle East</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Country (Optional)</label>
+                  <Select value={selectedCountry} onValueChange={setSelectedCountry}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select country" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="us">United States</SelectItem>
+                      <SelectItem value="uk">United Kingdom</SelectItem>
+                      <SelectItem value="ca">Canada</SelectItem>
+                      <SelectItem value="au">Australia</SelectItem>
+                      <SelectItem value="nz">New Zealand</SelectItem>
+                      <SelectItem value="ae">United Arab Emirates</SelectItem>
+                      <SelectItem value="sa">Saudi Arabia</SelectItem>
+                      <SelectItem value="my">Malaysia</SelectItem>
+                      <SelectItem value="id">Indonesia</SelectItem>
+                      <SelectItem value="sg">Singapore</SelectItem>
+                      <SelectItem value="in">India</SelectItem>
+                      <SelectItem value="pk">Pakistan</SelectItem>
+                      <SelectItem value="bd">Bangladesh</SelectItem>
+                      <SelectItem value="tr">Turkey</SelectItem>
+                      <SelectItem value="eg">Egypt</SelectItem>
+                      <SelectItem value="za">South Africa</SelectItem>
+                      <SelectItem value="ng">Nigeria</SelectItem>
+                      <SelectItem value="de">Germany</SelectItem>
+                      <SelectItem value="fr">France</SelectItem>
+                      <SelectItem value="es">Spain</SelectItem>
+                      <SelectItem value="it">Italy</SelectItem>
+                      <SelectItem value="nl">Netherlands</SelectItem>
+                      <SelectItem value="be">Belgium</SelectItem>
+                      <SelectItem value="se">Sweden</SelectItem>
+                      <SelectItem value="no">Norway</SelectItem>
+                      <SelectItem value="dk">Denmark</SelectItem>
+                      <SelectItem value="fi">Finland</SelectItem>
+                      <SelectItem value="br">Brazil</SelectItem>
+                      <SelectItem value="mx">Mexico</SelectItem>
+                      <SelectItem value="ar">Argentina</SelectItem>
+                      <SelectItem value="jp">Japan</SelectItem>
+                      <SelectItem value="cn">China</SelectItem>
+                      <SelectItem value="kr">South Korea</SelectItem>
+                      <SelectItem value="th">Thailand</SelectItem>
+                      <SelectItem value="ph">Philippines</SelectItem>
+                      <SelectItem value="vn">Vietnam</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               {/* Barcode Scan */}

@@ -53,12 +53,13 @@ export default function Report() {
       // Insert report
       const { error: insertError } = await supabase
         .from("reports")
-        .insert({
-          barcode: barcode,
+        .insert([{
+          barcode: barcode || null,
           comment: comment || null,
           photo_url: photoUrl,
           status: "pending",
-        });
+          user_id: crypto.randomUUID(), // Temporary until auth is removed from schema
+        }]);
 
       if (insertError) {
         throw insertError;
