@@ -29,6 +29,14 @@ interface Verdict {
   analysis_method?: string;
   external_source?: string;
   ai_explanation?: string;
+  check_details?: Array<{
+    database: string;
+    country: string;
+    checked: boolean;
+    found: boolean;
+    response_time_ms: number;
+    status: string;
+  }>;
 }
 
 export default function Results() {
@@ -164,7 +172,8 @@ export default function Results() {
               ? 'certification_verified' 
               : aiAnalysis ? 'ai_analysis' : 'rules_engine',
             external_source: certData?.external_source || 'open_food_facts',
-            ai_explanation: aiAnalysis?.ai_explanation || null
+            ai_explanation: aiAnalysis?.ai_explanation || null,
+            check_details: certData?.check_details || []
           };
 
           setVerdict(newVerdict as Verdict);
@@ -562,6 +571,55 @@ export default function Results() {
               </Button>
             </div>
           </Card>
+
+          {/* Certification Check Details */}
+          {verdict.check_details && verdict.check_details.length > 0 && (
+            <Card className="p-6 bg-muted/50">
+              <h3 className="font-semibold text-lg mb-3 text-foreground flex items-center gap-2">
+                <Activity className="h-5 w-5 text-primary" />
+                Certification Database Checks
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                We checked {verdict.check_details.length} official halal certification databases in parallel:
+              </p>
+              <div className="space-y-2">
+                {verdict.check_details.map((check, idx) => (
+                  <div 
+                    key={idx}
+                    className={`flex items-center justify-between p-3 rounded-lg border ${
+                      check.found 
+                        ? 'bg-halal-bg border-halal'
+                        : check.status === 'timeout' 
+                        ? 'bg-muted border-border opacity-60'
+                        : 'bg-background border-border'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {check.found ? (
+                        <CheckCircle2 className="h-5 w-5 text-halal flex-shrink-0" />
+                      ) : check.status === 'timeout' ? (
+                        <HelpCircle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                      ) : (
+                        <div className="h-5 w-5 rounded-full border-2 border-border flex-shrink-0" />
+                      )}
+                      <div>
+                        <p className="font-medium text-foreground">{check.database}</p>
+                        <p className="text-xs text-muted-foreground">{check.country}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <Badge variant="outline" className="text-xs">
+                        {check.response_time_ms}ms
+                      </Badge>
+                      {check.status === 'timeout' && (
+                        <p className="text-xs text-muted-foreground mt-1">Timeout</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
 
           {/* External Verification Section */}
           <Card className="p-6 bg-primary/5 border-primary/20">

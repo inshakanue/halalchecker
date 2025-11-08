@@ -21,7 +21,8 @@ serve(async (req) => {
       cert_body: null,
       cert_country: null,
       cert_link: null,
-      confidence_score: 0
+      confidence_score: 0,
+      check_details: []
     };
 
     // Check 1: Open Food Facts labels for halal certification markers
@@ -48,6 +49,16 @@ serve(async (req) => {
       if (productName) {
         checks.push(
           (async () => {
+            const startTime = Date.now();
+            const checkResult: any = {
+              database: 'VerifyHalal',
+              country: 'Global',
+              checked: true,
+              found: false,
+              response_time_ms: 0,
+              status: 'pending'
+            };
+
             try {
               const searchUrl = `https://verifyhalal.com/product-result.html?keyword=${encodeURIComponent(productName)}`;
               console.log('Searching VerifyHalal:', searchUrl);
@@ -63,8 +74,10 @@ serve(async (req) => {
               });
 
               clearTimeout(timeoutId);
+              checkResult.response_time_ms = Date.now() - startTime;
 
               if (response.ok) {
+                checkResult.status = 'success';
                 const html = await response.text();
                 
                 const hasHalalCert = html.includes('halal-certified') || 
@@ -76,6 +89,8 @@ serve(async (req) => {
 
                 if (hasHalalCert || certBodyMatch) {
                   console.log('Found certification on VerifyHalal');
+                  checkResult.found = true;
+                  certificationData.check_details.push(checkResult);
                   return {
                     is_certified: true,
                     cert_body: certBodyMatch?.[1]?.trim() || 'VerifyHalal Listed',
@@ -85,10 +100,17 @@ serve(async (req) => {
                     external_source: 'verifyhalal'
                   };
                 }
+              } else {
+                checkResult.status = 'error';
+                checkResult.response_time_ms = Date.now() - startTime;
               }
             } catch (error) {
+              checkResult.response_time_ms = Date.now() - startTime;
+              checkResult.status = 'timeout';
               console.log('Error checking VerifyHalal:', error instanceof Error ? error.message : 'Unknown error');
             }
+            
+            certificationData.check_details.push(checkResult);
             return null;
           })()
         );
@@ -143,6 +165,16 @@ serve(async (req) => {
         certDatabases.forEach(db => {
           checks.push(
             (async () => {
+              const startTime = Date.now();
+              const checkResult: any = {
+                database: db.name,
+                country: db.country,
+                checked: true,
+                found: false,
+                response_time_ms: 0,
+                status: 'pending'
+              };
+
               try {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -157,9 +189,13 @@ serve(async (req) => {
                 });
 
                 clearTimeout(timeoutId);
+                checkResult.response_time_ms = Date.now() - startTime;
 
                 if (response.ok && response.status === 200) {
+                  checkResult.status = 'success';
+                  checkResult.found = true;
                   console.log(`Found potential certification in ${db.name} (${db.country})`);
+                  certificationData.check_details.push(checkResult);
                   return {
                     is_certified: true,
                     cert_body: db.name,
@@ -168,10 +204,16 @@ serve(async (req) => {
                     confidence_score: 95,
                     external_source: db.name.toLowerCase()
                   };
+                } else {
+                  checkResult.status = 'not_found';
                 }
               } catch (error) {
+                checkResult.response_time_ms = Date.now() - startTime;
+                checkResult.status = 'timeout';
                 console.log(`Could not check ${db.name}:`, error instanceof Error ? error.message : 'Unknown error');
               }
+              
+              certificationData.check_details.push(checkResult);
               return null;
             })()
           );
