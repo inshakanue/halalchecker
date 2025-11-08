@@ -115,30 +115,42 @@ export type Database = {
       verdicts: {
         Row: {
           analysis_notes: string | null
+          cert_body: string | null
+          cert_country: string | null
+          cert_link: string | null
           confidence_score: number | null
           created_at: string | null
           flagged_ingredients: string[] | null
           id: string
+          is_certified: boolean | null
           product_id: string
           updated_at: string | null
           verdict: string
         }
         Insert: {
           analysis_notes?: string | null
+          cert_body?: string | null
+          cert_country?: string | null
+          cert_link?: string | null
           confidence_score?: number | null
           created_at?: string | null
           flagged_ingredients?: string[] | null
           id?: string
+          is_certified?: boolean | null
           product_id: string
           updated_at?: string | null
           verdict: string
         }
         Update: {
           analysis_notes?: string | null
+          cert_body?: string | null
+          cert_country?: string | null
+          cert_link?: string | null
           confidence_score?: number | null
           created_at?: string | null
           flagged_ingredients?: string[] | null
           id?: string
+          is_certified?: boolean | null
           product_id?: string
           updated_at?: string | null
           verdict?: string
