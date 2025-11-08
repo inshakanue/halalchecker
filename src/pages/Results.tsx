@@ -426,10 +426,17 @@ export default function Results() {
                   <span className="text-2xl font-semibold text-foreground">{verdict.confidence_score}%</span>
                   <span className="text-sm text-muted-foreground">Confidence</span>
                   {getAnalysisMethodBadge(verdict.analysis_method)}
-                  <Badge variant="outline" className="bg-background">
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    Open Food Facts
-                  </Badge>
+                  <a 
+                    href={`https://world.openfoodfacts.org/product/${product.barcode}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block"
+                  >
+                    <Badge variant="outline" className="bg-background hover:bg-accent transition-colors cursor-pointer">
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      Open Food Facts
+                    </Badge>
+                  </a>
                 </div>
               </div>
             </div>
