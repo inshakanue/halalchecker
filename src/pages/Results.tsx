@@ -91,7 +91,8 @@ export default function Results() {
                 ? productData.ingredientsList 
                 : productData.ingredients,
               brand: productData.brand,
-              region: productData.region
+              region: productData.region,
+              labels: productData.labels
             } 
           }
         );
@@ -182,6 +183,13 @@ export default function Results() {
 
   const getAnalysisMethodBadge = (method?: string) => {
     switch (method) {
+      case 'certification_verified':
+        return (
+          <Badge className="bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700">
+            <CheckCircle2 className="h-3 w-3 mr-1" />
+            Certified
+          </Badge>
+        );
       case 'ai_analysis':
         return (
           <Badge className="bg-primary/10 text-primary border-primary/20">
@@ -259,6 +267,12 @@ export default function Results() {
               </div>
               <div className="flex-1 text-center md:text-left space-y-2">
                 <h2 className={`text-3xl font-bold ${styles.text}`}>{styles.label}</h2>
+                {verdict.is_certified && (
+                  <div className="flex items-center gap-2 text-sm bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 px-3 py-1.5 rounded-full w-fit mx-auto md:mx-0">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span className="font-medium">Officially Certified Halal</span>
+                  </div>
+                )}
                 <div className="flex items-center gap-3 justify-center md:justify-start flex-wrap">
                   <span className="text-2xl font-semibold text-foreground">{verdict.confidence_score}%</span>
                   <span className="text-sm text-muted-foreground">Confidence</span>
@@ -388,6 +402,43 @@ export default function Results() {
               <Button className="flex-1 bg-primary hover:bg-primary-dark">
                 Request Human Review
               </Button>
+            </div>
+          </Card>
+
+          {/* External Verification Section */}
+          <Card className="p-6 bg-primary/5 border-primary/20">
+            <h3 className="font-semibold text-lg mb-3 text-foreground flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-primary" />
+              External Verification Resources
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Cross-check this product's halal status through official certification databases:
+            </p>
+            <div className="space-y-3">
+              <a
+                href={`https://verifyhalal.com/product-result.html?keyword=${encodeURIComponent(product.name || product.barcode)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-start gap-3 p-3 rounded-lg bg-background hover:bg-muted transition-colors border border-border"
+              >
+                <ExternalLink className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-medium text-foreground">VerifyHalal Database</p>
+                  <p className="text-sm text-muted-foreground">Search 1.7M+ products across 85 certification bodies</p>
+                </div>
+              </a>
+              <a
+                href={`https://world.openfoodfacts.org/product/${product.barcode}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-start gap-3 p-3 rounded-lg bg-background hover:bg-muted transition-colors border border-border"
+              >
+                <ExternalLink className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-medium text-foreground">Open Food Facts</p>
+                  <p className="text-sm text-muted-foreground">View complete product details and certifications</p>
+                </div>
+              </a>
             </div>
           </Card>
         </div>

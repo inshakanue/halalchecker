@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { productName, ingredients, brand, region } = await req.json();
+    const { productName, ingredients, brand, region, labels } = await req.json();
     
     if (!ingredients || ingredients.length === 0) {
       return new Response(
@@ -27,7 +27,38 @@ serve(async (req) => {
 
     console.log(`Analyzing ingredients for: ${productName}`);
 
-    const ingredientsList = Array.isArray(ingredients) 
+    // Check for halal certification in labels first
+    if (labels) {
+      const labelString = typeof labels === 'string' ? labels.toLowerCase() : '';
+      const halalKeywords = ['halal', 'حلال', 'halal-certified', 'en:halal'];
+      
+      const isCertified = halalKeywords.some(keyword => labelString.includes(keyword));
+      
+      if (isCertified) {
+        console.log('Halal certification found in product labels');
+        return new Response(
+          JSON.stringify({
+            verdict: 'halal',
+            confidence_score: 95,
+            flagged_ingredients: [],
+            analysis_notes: 'This product has official halal certification as indicated by its labels.',
+            recommendations: 'Verify the certification body and validity date on the product packaging.',
+            ai_explanation: 'Halal certification detected in product labels from Open Food Facts database.',
+            analysis_method: 'certification_verified',
+            is_certified: true,
+            cert_body: 'Open Food Facts Database',
+            external_source: 'Open Food Facts',
+            verification_links: [
+              `https://verifyhalal.com/product-result.html?keyword=${productName}`,
+              'https://world.openfoodfacts.org/product/' + (brand || '').toLowerCase().replace(/\s+/g, '-')
+            ]
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    const ingredientsList = Array.isArray(ingredients)
       ? ingredients.join(', ') 
       : ingredients;
 
@@ -131,7 +162,12 @@ Analyze these ingredients for halal compliance and return JSON only.`;
       JSON.stringify({
         ...analysis,
         ai_explanation: aiContent,
-        analysis_method: 'ai_analysis'
+        analysis_method: 'ai_analysis',
+        is_certified: false,
+        verification_links: [
+          `https://verifyhalal.com/product-result.html?keyword=${productName || brand}`,
+          'https://world.openfoodfacts.org/product/' + (brand || '').toLowerCase().replace(/\s+/g, '-')
+        ]
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
