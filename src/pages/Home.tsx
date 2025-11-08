@@ -233,7 +233,6 @@ export default function Home() {
                       <SelectValue placeholder="Select region" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
                       <SelectItem value="world">Global</SelectItem>
                       <SelectItem value="africa">Africa</SelectItem>
                       <SelectItem value="asia">Asia</SelectItem>
@@ -253,7 +252,6 @@ export default function Home() {
                       <SelectValue placeholder="Select country" />
                     </SelectTrigger>
                     <SelectContent className="max-h-[300px]">
-                      <SelectItem value="">None</SelectItem>
                       <SelectItem value="us">United States</SelectItem>
                       <SelectItem value="uk">United Kingdom</SelectItem>
                       <SelectItem value="ca">Canada</SelectItem>
