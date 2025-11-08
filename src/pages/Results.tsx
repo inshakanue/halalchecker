@@ -649,42 +649,6 @@ export default function Results() {
             </Collapsible>
           )}
 
-          {/* External Verification Section */}
-          <Card className="p-6 bg-primary/5 border-primary/20">
-            <h3 className="font-semibold text-lg mb-3 text-foreground flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-primary" />
-              External Verification Resources
-            </h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Cross-check this product's halal status through official certification databases:
-            </p>
-            <div className="space-y-3">
-              <a
-                href={`https://verifyhalal.com/product-result.html?keyword=${encodeURIComponent(product.name || product.barcode)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-start gap-3 p-3 rounded-lg bg-background hover:bg-muted transition-colors border border-border"
-              >
-                <ExternalLink className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="font-medium text-foreground">VerifyHalal Database</p>
-                  <p className="text-sm text-muted-foreground">Search 1.7M+ products across 85 certification bodies</p>
-                </div>
-              </a>
-              <a
-                href={`https://world.openfoodfacts.org/product/${product.barcode}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-start gap-3 p-3 rounded-lg bg-background hover:bg-muted transition-colors border border-border"
-              >
-                <ExternalLink className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="font-medium text-foreground">Open Food Facts</p>
-                  <p className="text-sm text-muted-foreground">View complete product details and certifications</p>
-                </div>
-              </a>
-            </div>
-          </Card>
         </div>
       </div>
     </Layout>
