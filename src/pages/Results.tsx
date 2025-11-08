@@ -292,6 +292,43 @@ export default function Results() {
     );
   };
 
+  // Robust parsing for JSON-like AI explanations without showing raw JSON
+  const cleanJsonish = (input: string) => {
+    let s = input.trim();
+    // Remove fenced code blocks
+    s = s.replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim();
+    // Remove trailing commas
+    s = s.replace(/,\s*([}\]])/g, '$1');
+    // Quote single-quoted keys and values
+    s = s.replace(/([{,]\s*)'([^']+?)'\s*:/g, '$1"$2":');
+    s = s.replace(/:\s*'([^']*?)'(\s*[},])/g, ':"$1"$2');
+    return s;
+  };
+
+  const safeParseAIExplanation = (exp: unknown): any | null => {
+    if (!exp) return null;
+    if (typeof exp === 'object') return exp as any;
+    if (typeof exp === 'string') {
+      try { return JSON.parse(exp); } catch {}
+      try { return JSON.parse(cleanJsonish(exp)); } catch {}
+      return null;
+    }
+    return null;
+  };
+
+  const extractPairsFromJsonish = (str: string): Array<[string, string]> => {
+    const s = cleanJsonish(str);
+    const pairs: Array<[string, string]> = [];
+    const regex = /"([^"]+)"\s*:\s*(?:"([^"]*)"|([0-9.]+)|(true|false|null))/g;
+    let m: RegExpExecArray | null;
+    while ((m = regex.exec(s)) && pairs.length < 12) {
+      const key = m[1];
+      const val = (m[2] ?? m[3] ?? m[4] ?? '').toString();
+      pairs.push([key, val]);
+    }
+    return pairs;
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -435,35 +472,27 @@ export default function Results() {
                 <div className="space-y-4 flex-1">
                   <h3 className="font-semibold text-lg text-foreground">AI Detailed Analysis</h3>
                   {(() => {
-                    try {
-                      const parsed = typeof verdict.ai_explanation === 'string'
-                        ? JSON.parse(verdict.ai_explanation)
-                        : verdict.ai_explanation;
+                    const explanation = verdict.ai_explanation as unknown;
+                    const parsed = safeParseAIExplanation(explanation);
+                    if (parsed) {
                       return renderJSON(parsed);
-                    } catch {
-                      // If JSON parsing fails, display as formatted text
+                    }
+                    const pairs = extractPairsFromJsonish(String(explanation));
+                    if (pairs.length) {
                       return (
-                        <div className="text-sm text-muted-foreground leading-relaxed">
-                          {String(verdict.ai_explanation)
-                            .split('\n')
-                            .map((line, idx) => {
-                              if (line.trim().startsWith('-') || line.trim().startsWith('•')) {
-                                return (
-                                  <div key={idx} className="flex gap-2 ml-4 my-1">
-                                    <span className="text-primary">•</span>
-                                    <span>{line.replace(/^[-•]\s*/, '')}</span>
-                                  </div>
-                                );
-                              }
-                              return line.trim() ? (
-                                <p key={idx} className="mb-2">{line}</p>
-                              ) : (
-                                <div key={idx} className="h-2" />
-                              );
-                            })}
+                        <div className="grid sm:grid-cols-2 gap-3">
+                          {pairs.map(([key, value], idx) => (
+                            <div key={`${key}-${idx}`} className="bg-background/50 p-3 rounded-lg border border-border/50">
+                              <p className="text-xs uppercase tracking-wide text-muted-foreground">{formatKey(key)}</p>
+                              <p className="text-sm text-foreground break-words">{value}</p>
+                            </div>
+                          ))}
                         </div>
                       );
                     }
+                    return (
+                      <p className="text-sm text-muted-foreground">AI analysis available, but the format could not be displayed.</p>
+                    );
                   })()}
                 </div>
               </div>
