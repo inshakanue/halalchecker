@@ -6,7 +6,8 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, AlertTriangle, CheckCircle2, HelpCircle, Flag, ExternalLink, Sparkles, Activity } from "lucide-react";
+import { ArrowLeft, AlertTriangle, CheckCircle2, HelpCircle, Flag, ExternalLink, Sparkles, Activity, ChevronDown } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface Product {
   barcode: string;
@@ -45,6 +46,7 @@ export default function Results() {
   const [product, setProduct] = useState<Product | null>(null);
   const [verdict, setVerdict] = useState<Verdict | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isCheckDetailsOpen, setIsCheckDetailsOpen] = useState(false);
 
   useEffect(() => {
     fetchProductAndVerdict();
@@ -574,51 +576,70 @@ export default function Results() {
 
           {/* Certification Check Details */}
           {verdict.check_details && verdict.check_details.length > 0 && (
-            <Card className="p-6 bg-muted/50">
-              <h3 className="font-semibold text-lg mb-3 text-foreground flex items-center gap-2">
-                <Activity className="h-5 w-5 text-primary" />
-                Certification Database Checks
-              </h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                We checked {verdict.check_details.length} official halal certification databases in parallel:
-              </p>
-              <div className="space-y-2">
-                {verdict.check_details.map((check, idx) => (
-                  <div 
-                    key={idx}
-                    className={`flex items-center justify-between p-3 rounded-lg border ${
-                      check.found 
-                        ? 'bg-halal-bg border-halal'
-                        : check.status === 'timeout' 
-                        ? 'bg-muted border-border opacity-60'
-                        : 'bg-background border-border'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      {check.found ? (
-                        <CheckCircle2 className="h-5 w-5 text-halal flex-shrink-0" />
-                      ) : check.status === 'timeout' ? (
-                        <HelpCircle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                      ) : (
-                        <div className="h-5 w-5 rounded-full border-2 border-border flex-shrink-0" />
-                      )}
-                      <div>
-                        <p className="font-medium text-foreground">{check.database}</p>
-                        <p className="text-xs text-muted-foreground">{check.country}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <Badge variant="outline" className="text-xs">
-                        {check.response_time_ms}ms
+            <Collapsible open={isCheckDetailsOpen} onOpenChange={setIsCheckDetailsOpen}>
+              <Card className="p-6 bg-muted/50">
+                <CollapsibleTrigger asChild>
+                  <button className="w-full flex items-center justify-between group hover:opacity-80 transition-opacity">
+                    <div className="flex items-center gap-2">
+                      <Activity className="h-5 w-5 text-primary" />
+                      <h3 className="font-semibold text-lg text-foreground">
+                        Certification Database Checks
+                      </h3>
+                      <Badge variant="outline" className="ml-2">
+                        {verdict.check_details.length} databases
                       </Badge>
-                      {check.status === 'timeout' && (
-                        <p className="text-xs text-muted-foreground mt-1">Timeout</p>
-                      )}
                     </div>
+                    <ChevronDown 
+                      className={`h-5 w-5 text-muted-foreground transition-transform ${
+                        isCheckDetailsOpen ? 'rotate-180' : ''
+                      }`} 
+                    />
+                  </button>
+                </CollapsibleTrigger>
+                
+                <CollapsibleContent className="mt-4">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    We checked {verdict.check_details.length} official halal certification databases in parallel:
+                  </p>
+                  <div className="space-y-2">
+                    {verdict.check_details.map((check, idx) => (
+                      <div 
+                        key={idx}
+                        className={`flex items-center justify-between p-3 rounded-lg border ${
+                          check.found 
+                            ? 'bg-halal-bg border-halal'
+                            : check.status === 'timeout' 
+                            ? 'bg-muted border-border opacity-60'
+                            : 'bg-background border-border'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          {check.found ? (
+                            <CheckCircle2 className="h-5 w-5 text-halal flex-shrink-0" />
+                          ) : check.status === 'timeout' ? (
+                            <HelpCircle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                          ) : (
+                            <div className="h-5 w-5 rounded-full border-2 border-border flex-shrink-0" />
+                          )}
+                          <div>
+                            <p className="font-medium text-foreground">{check.database}</p>
+                            <p className="text-xs text-muted-foreground">{check.country}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <Badge variant="outline" className="text-xs">
+                            {check.response_time_ms}ms
+                          </Badge>
+                          {check.status === 'timeout' && (
+                            <p className="text-xs text-muted-foreground mt-1">Timeout</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </Card>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
           )}
 
           {/* External Verification Section */}
