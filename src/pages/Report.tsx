@@ -15,17 +15,6 @@ export default function Report() {
   const [comment, setComment] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [user, setUser] = useState<any>(null);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user);
-      if (!user) {
-        toast.error("Please login to submit a report");
-        navigate("/login");
-      }
-    });
-  }, [navigate]);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -36,12 +25,6 @@ export default function Report() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!user) {
-      toast.error("Please login to submit a report");
-      navigate("/login");
-      return;
-    }
-
     setUploading(true);
 
     try {
@@ -50,7 +33,7 @@ export default function Report() {
       // Upload photo if provided
       if (photo) {
         const fileExt = photo.name.split(".").pop();
-        const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+        const fileName = `${Date.now()}.${fileExt}`;
         
         const { error: uploadError } = await supabase.storage
           .from("report-photos")
@@ -72,7 +55,6 @@ export default function Report() {
         .from("reports")
         .insert({
           barcode: barcode,
-          user_id: user.id,
           comment: comment || null,
           photo_url: photoUrl,
           status: "pending",
