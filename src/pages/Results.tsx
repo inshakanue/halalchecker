@@ -256,10 +256,12 @@ export default function Results() {
         );
       case 'ai_analysis':
         return (
-          <Badge className="bg-primary/10 text-primary border-primary/20">
-            <Sparkles className="h-3 w-3 mr-1" />
-            AI Analysis
-          </Badge>
+          <a href="#ai-detailed-analysis" className="inline-block">
+            <Badge className="bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 transition-colors cursor-pointer">
+              <Sparkles className="h-3 w-3 mr-1" />
+              AI Analysis
+            </Badge>
+          </a>
         );
       case 'manual':
         return (
@@ -506,7 +508,7 @@ export default function Results() {
 
           {/* AI Explanation */}
           {verdict.ai_explanation && verdict.analysis_method === 'ai_analysis' && (
-            <Card className="p-6 bg-primary/5 border-primary/20">
+            <Card id="ai-detailed-analysis" className="p-6 bg-primary/5 border-primary/20 scroll-mt-4">
               <div className="flex items-start gap-3">
                 <Sparkles className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
                 <div className="space-y-4 flex-1">
