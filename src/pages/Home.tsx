@@ -10,7 +10,6 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Html5Qrcode } from "html5-qrcode";
-
 interface SearchResult {
   barcode: string;
   name: string;
@@ -18,7 +17,6 @@ interface SearchResult {
   imageUrl: string | null;
   hasIngredients: boolean;
 }
-
 export default function Home() {
   const navigate = useNavigate();
   const [barcode, setBarcode] = useState("");
@@ -30,29 +28,27 @@ export default function Home() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchResultsDialog, setSearchResultsDialog] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-
   const handleBarcodeSearch = async (barcodeValue?: string) => {
     const searchBarcode = barcodeValue || barcode.trim();
-    
     if (!searchBarcode) {
       toast.error("Please enter a barcode");
       return;
     }
-
     setIsFetching(true);
-
     try {
       // Step 1: Fetch from Open Food Facts
       toast.info("Searching global product database...");
-      const { data: externalProduct, error: fetchError } = await supabase.functions.invoke(
-        'fetch-product-data',
-        { body: { barcode: searchBarcode } }
-      );
-
+      const {
+        data: externalProduct,
+        error: fetchError
+      } = await supabase.functions.invoke('fetch-product-data', {
+        body: {
+          barcode: searchBarcode
+        }
+      });
       if (fetchError) {
         throw fetchError;
       }
-
       if (!externalProduct.found) {
         toast.error("Product not found. Try a different barcode.");
         setIsFetching(false);
@@ -60,29 +56,23 @@ export default function Home() {
       }
 
       // Step 2: Check if we already have a verdict for this barcode
-      const { data: existingVerdict } = await supabase
-        .from("verdicts")
-        .select("*")
-        .eq("barcode", searchBarcode)
-        .maybeSingle();
-
+      const {
+        data: existingVerdict
+      } = await supabase.from("verdicts").select("*").eq("barcode", searchBarcode).maybeSingle();
       if (!existingVerdict) {
         // Step 3: Analyze with Lovable AI
         toast.info("Analyzing ingredients with AI...");
-        const { data: aiAnalysis, error: aiError } = await supabase.functions.invoke(
-          'analyze-ingredients-ai',
-          { 
-            body: { 
-              productName: externalProduct.name,
-              ingredients: externalProduct.ingredientsList.length > 0 
-                ? externalProduct.ingredientsList 
-                : externalProduct.ingredients,
-              brand: externalProduct.brand,
-              region: externalProduct.region
-            } 
+        const {
+          data: aiAnalysis,
+          error: aiError
+        } = await supabase.functions.invoke('analyze-ingredients-ai', {
+          body: {
+            productName: externalProduct.name,
+            ingredients: externalProduct.ingredientsList.length > 0 ? externalProduct.ingredientsList : externalProduct.ingredients,
+            brand: externalProduct.brand,
+            region: externalProduct.region
           }
-        );
-
+        });
         if (aiError) {
           console.error('AI analysis error:', aiError);
           toast.warning("Product found but AI analysis failed. Using basic analysis.");
@@ -111,12 +101,9 @@ export default function Home() {
           // Ignore cache errors (non-critical)
           console.log('Cache insert failed (non-critical)', cacheError);
         }
-
         toast.success("Product analyzed!");
       }
-
       navigate(`/results/${searchBarcode}`);
-
     } catch (error) {
       console.error("Search error:", error);
       toast.error("Failed to search product. Please try again.");
@@ -124,44 +111,35 @@ export default function Home() {
       setIsFetching(false);
     }
   };
-
   const handleProductSearch = async () => {
     const query = searchQuery.trim();
-    
     if (!query) {
       toast.error("Please enter a product name");
       return;
     }
-
     setIsSearching(true);
-
     try {
       toast.info("Searching products...");
-      
-      const { data, error } = await supabase.functions.invoke(
-        'search-products-by-name',
-        { 
-          body: { 
-            productName: query,
-            region: region === 'global' ? 'world' : region.toLowerCase()
-          } 
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke('search-products-by-name', {
+        body: {
+          productName: query,
+          region: region === 'global' ? 'world' : region.toLowerCase()
         }
-      );
-
+      });
       if (error) {
         throw error;
       }
-
       if (!data.products || data.products.length === 0) {
         toast.error("No products found. Try a different search term.");
         setIsSearching(false);
         return;
       }
-
       setSearchResults(data.products);
       setSearchResultsDialog(true);
       toast.success(`Found ${data.products.length} products`);
-
     } catch (error) {
       console.error("Search error:", error);
       toast.error("Failed to search products. Please try again.");
@@ -169,42 +147,38 @@ export default function Home() {
       setIsSearching(false);
     }
   };
-
   const handleSelectProduct = async (selectedBarcode: string) => {
     setSearchResultsDialog(false);
     setSearchResults([]);
     setSearchQuery("");
     await handleBarcodeSearch(selectedBarcode);
   };
-
   const startScanner = async () => {
     setIsScanning(true);
     setScannerDialog(true);
-
     try {
       const html5QrCode = new Html5Qrcode("reader");
-      
-      await html5QrCode.start(
-        { facingMode: "environment" },
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 }
-        },
-        async (decodedText) => {
-          // Stop scanning
-          await html5QrCode.stop();
-          setScannerDialog(false);
-          setIsScanning(false);
-          
-          // Search with scanned barcode
-          toast.success("Barcode scanned!");
-          setBarcode(decodedText);
-          await handleBarcodeSearch(decodedText);
-        },
-        (errorMessage) => {
-          // Ignore errors during scanning
+      await html5QrCode.start({
+        facingMode: "environment"
+      }, {
+        fps: 10,
+        qrbox: {
+          width: 250,
+          height: 250
         }
-      );
+      }, async decodedText => {
+        // Stop scanning
+        await html5QrCode.stop();
+        setScannerDialog(false);
+        setIsScanning(false);
+
+        // Search with scanned barcode
+        toast.success("Barcode scanned!");
+        setBarcode(decodedText);
+        await handleBarcodeSearch(decodedText);
+      }, errorMessage => {
+        // Ignore errors during scanning
+      });
     } catch (error) {
       console.error("Scanner error:", error);
       toast.error("Failed to start camera. Please check permissions.");
@@ -212,7 +186,6 @@ export default function Home() {
       setIsScanning(false);
     }
   };
-
   const stopScanner = async () => {
     try {
       const html5QrCode = new Html5Qrcode("reader");
@@ -223,16 +196,13 @@ export default function Home() {
     setScannerDialog(false);
     setIsScanning(false);
   };
-
-  return (
-    <Layout>
+  return <Layout>
       <div className="relative overflow-hidden">
         {/* Hero Section */}
         <div className="relative bg-gradient-to-br from-primary via-primary-light to-primary-dark text-primary-foreground">
-          <div 
-            className="absolute inset-0 opacity-10"
-            style={{ backgroundImage: "var(--pattern-overlay)" }}
-          />
+          <div className="absolute inset-0 opacity-10" style={{
+          backgroundImage: "var(--pattern-overlay)"
+        }} />
           
           <div className="container mx-auto px-4 py-16 md:py-24 relative">
             <div className="max-w-3xl mx-auto text-center space-y-6">
@@ -273,12 +243,7 @@ export default function Home() {
               {/* Barcode Scan */}
               <div className="space-y-3">
                 <label className="text-sm font-medium text-foreground">Scan Barcode</label>
-                <Button 
-                  onClick={startScanner}
-                  disabled={isScanning || isFetching}
-                  className="w-full h-14 text-lg bg-primary hover:bg-primary-dark"
-                  size="lg"
-                >
+                <Button onClick={startScanner} disabled={isScanning || isFetching} className="w-full h-14 text-lg bg-primary hover:bg-primary-dark" size="lg">
                   <Camera className="mr-2 h-5 w-5" />
                   {isScanning ? "Opening Camera..." : "Scan with Camera"}
                 </Button>
@@ -297,15 +262,7 @@ export default function Home() {
               <div className="space-y-3">
                 <label className="text-sm font-medium text-foreground">Enter Barcode Manually</label>
                 <div className="flex gap-2">
-                  <Input
-                    type="text"
-                    placeholder="e.g., 0123456789012"
-                    value={barcode}
-                    onChange={(e) => setBarcode(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleBarcodeSearch()}
-                    className="flex-1"
-                    disabled={isFetching}
-                  />
+                  <Input type="text" placeholder="e.g., 0123456789012" value={barcode} onChange={e => setBarcode(e.target.value)} onKeyDown={e => e.key === "Enter" && handleBarcodeSearch()} className="flex-1" disabled={isFetching} />
                   <Button onClick={() => handleBarcodeSearch()} size="lg" disabled={isFetching}>
                     {isFetching ? <Loader2 className="h-5 w-5 animate-spin" /> : <ScanBarcode className="h-5 w-5" />}
                   </Button>
@@ -325,27 +282,17 @@ export default function Home() {
               <div className="space-y-3">
                 <label className="text-sm font-medium text-foreground">Search by Product Name</label>
                 <div className="flex gap-2">
-                  <Input
-                    type="text"
-                    placeholder="e.g., Chicken Nuggets"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleProductSearch()}
-                    className="flex-1"
-                    disabled={isFetching}
-                  />
+                  <Input type="text" placeholder="e.g., Chicken Nuggets" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} onKeyDown={e => e.key === "Enter" && handleProductSearch()} className="flex-1" disabled={isFetching} />
                   <Button onClick={handleProductSearch} size="lg" disabled={isFetching || isSearching}>
                     {isSearching ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
                   </Button>
                 </div>
               </div>
 
-              {isFetching && (
-                <div className="text-center py-4">
+              {isFetching && <div className="text-center py-4">
                   <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
                   <p className="text-sm text-muted-foreground mt-2">Searching and analyzing product...</p>
-                </div>
-              )}
+                </div>}
             </div>
           </Card>
 
@@ -364,7 +311,7 @@ export default function Home() {
                 <Search className="h-6 w-6 text-primary" />
               </div>
               <h3 className="font-semibold text-lg">AI-Powered Analysis</h3>
-              <p className="text-sm text-muted-foreground">Advanced ingredient checking with Lovable AI</p>
+              <p className="text-sm text-muted-foreground">Advanced ingredient checking with AI</p>
             </Card>
             
             <Card className="p-6 text-center space-y-3 border-primary/20 hover:border-primary/40 transition-colors">
@@ -379,7 +326,7 @@ export default function Home() {
       </div>
 
       {/* Scanner Dialog */}
-      <Dialog open={scannerDialog} onOpenChange={(open) => !open && stopScanner()}>
+      <Dialog open={scannerDialog} onOpenChange={open => !open && stopScanner()}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Scan Barcode</DialogTitle>
@@ -403,44 +350,27 @@ export default function Home() {
             <DialogTitle>Search Results</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 overflow-y-auto max-h-[60vh]">
-            {searchResults.map((product) => (
-              <Card 
-                key={product.barcode} 
-                className="p-4 hover:border-primary/50 transition-colors cursor-pointer"
-                onClick={() => handleSelectProduct(product.barcode)}
-              >
+            {searchResults.map(product => <Card key={product.barcode} className="p-4 hover:border-primary/50 transition-colors cursor-pointer" onClick={() => handleSelectProduct(product.barcode)}>
                 <div className="flex gap-4">
-                  {product.imageUrl ? (
-                    <img 
-                      src={product.imageUrl} 
-                      alt={product.name}
-                      className="w-20 h-20 object-contain rounded border border-border"
-                    />
-                  ) : (
-                    <div className="w-20 h-20 bg-muted rounded border border-border flex items-center justify-center">
+                  {product.imageUrl ? <img src={product.imageUrl} alt={product.name} className="w-20 h-20 object-contain rounded border border-border" /> : <div className="w-20 h-20 bg-muted rounded border border-border flex items-center justify-center">
                       <ShoppingCart className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                  )}
+                    </div>}
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-foreground truncate">{product.name}</h3>
                     <p className="text-sm text-muted-foreground">{product.brand}</p>
                     <p className="text-xs text-muted-foreground mt-1">Barcode: {product.barcode}</p>
-                    {!product.hasIngredients && (
-                      <p className="text-xs text-warning mt-1">⚠️ Limited ingredient data</p>
-                    )}
+                    {!product.hasIngredients && <p className="text-xs text-warning mt-1">⚠️ Limited ingredient data</p>}
                   </div>
                   <Button size="sm" variant="outline">
                     Select
                   </Button>
                 </div>
-              </Card>
-            ))}
+              </Card>)}
           </div>
           <Button variant="outline" onClick={() => setSearchResultsDialog(false)} className="w-full">
             Cancel
           </Button>
         </DialogContent>
       </Dialog>
-    </Layout>
-  );
+    </Layout>;
 }
