@@ -1,6 +1,6 @@
 import { Layout } from "@/components/Layout";
 import { Card } from "@/components/ui/card";
-import { ShieldCheck, AlertTriangle, Users, BookOpen } from "lucide-react";
+import { ShieldCheck, AlertTriangle, Users, BookOpen, Sparkles, Database, Camera } from "lucide-react";
 
 export default function About() {
   return (
@@ -10,7 +10,7 @@ export default function About() {
           <div className="text-center space-y-4">
             <h1 className="text-4xl font-bold text-foreground">About HalalChecker</h1>
             <p className="text-lg text-muted-foreground">
-              Making halal verification simple and accessible through AI-powered ingredient analysis
+              Making halal verification accessible through AI-powered ingredient analysis and certification database verification
             </p>
           </div>
 
@@ -23,10 +23,9 @@ export default function About() {
                 <div>
                   <h2 className="text-xl font-semibold mb-2 text-foreground">Our Mission</h2>
                   <p className="text-muted-foreground">
-                    HalalChecker provides instant ingredient analysis to help Muslim consumers
-                    make informed decisions about food products. Using advanced AI technology and data
-                    from Open Food Facts, we analyze product ingredients and provide clear halal status
-                    assessments with confidence scores.
+                    HalalChecker empowers Muslim consumers to make informed dietary decisions with confidence.
+                    We combine multiple verification methods—official certification databases, AI-powered ingredient 
+                    analysis, and crowdsourced reporting—to provide comprehensive halal status assessments for food products worldwide.
                   </p>
                 </div>
               </div>
@@ -37,13 +36,60 @@ export default function About() {
                 </div>
                 <div>
                   <h2 className="text-xl font-semibold mb-2 text-foreground">How It Works</h2>
+                  <div className="space-y-3 text-muted-foreground">
+                    <p className="font-medium text-foreground">Step 1: Find Your Product</p>
+                    <ul className="list-disc list-inside space-y-1 ml-4">
+                      <li>Scan barcode using your device camera</li>
+                      <li>Enter barcode manually (13-digit EAN/UPC codes)</li>
+                      <li>Search by product name with optional region/country filters</li>
+                    </ul>
+
+                    <p className="font-medium text-foreground mt-4">Step 2: Automatic Verification</p>
+                    <ul className="list-disc list-inside space-y-1 ml-4">
+                      <li><strong>Product Data:</strong> Retrieved from Open Food Facts global database (1.7M+ products)</li>
+                      <li><strong>Certification Check:</strong> Cross-referenced against official halal certification databases worldwide</li>
+                      <li><strong>AI Analysis:</strong> Ingredients analyzed using advanced AI models trained on Islamic dietary guidelines</li>
+                    </ul>
+
+                    <p className="font-medium text-foreground mt-4">Step 3: Clear Results</p>
+                    <ul className="list-disc list-inside space-y-1 ml-4">
+                      <li><strong>Verdict:</strong> Halal, Not Halal, or Unclear classification</li>
+                      <li><strong>Confidence Score:</strong> Percentage indicating analysis reliability (0-100%)</li>
+                      <li><strong>Flagged Ingredients:</strong> Specific ingredients that raise halal concerns</li>
+                      <li><strong>AI Explanation:</strong> Detailed reasoning behind the verdict</li>
+                      <li><strong>Certification Status:</strong> Official halal certification details when available</li>
+                      <li><strong>Database Checks:</strong> Transparent view of which certification databases were checked and response times</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold mb-2 text-foreground">AI-Powered Analysis</h2>
                   <p className="text-muted-foreground">
-                    Simply scan a product barcode or search by product name. You can filter results by
-                    region or country for more accurate matches. Our AI-powered system retrieves product
-                    data from Open Food Facts and analyzes each ingredient against Islamic dietary guidelines.
-                    We provide a clear verdict (Halal, Not Halal, or Unclear) with a confidence score and
-                    detailed analysis of flagged ingredients. Products with official halal certifications
-                    are automatically recognized.
+                    Our AI system analyzes ingredient lists against Islamic dietary laws, identifying potentially 
+                    problematic ingredients including animal-derived products, alcohol-based compounds, and cross-contamination 
+                    risks. The AI provides detailed explanations for each verdict, helping you understand why a product 
+                    received its classification. Analysis results include confidence scores and specific flagged ingredients.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-halal-bg rounded-full flex items-center justify-center flex-shrink-0">
+                  <Database className="h-6 w-6 text-halal" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold mb-2 text-foreground">Certification Database Verification</h2>
+                  <p className="text-muted-foreground">
+                    Every product is automatically checked against multiple official halal certification databases worldwide. 
+                    Products with recognized certifications are immediately marked as certified halal, bypassing the need for 
+                    ingredient analysis. Our system provides full transparency by showing which databases were checked, 
+                    whether certifications were found, and the response time for each database query.
                   </p>
                 </div>
               </div>
@@ -56,10 +102,33 @@ export default function About() {
                   <h2 className="text-xl font-semibold mb-2 text-foreground">Community Driven</h2>
                   <p className="text-muted-foreground">
                     Help us improve! Found incorrect information or have concerns about a product analysis?
-                    Use our built-in report feature to flag issues, suggest corrections, or request human
-                    review for uncertain products. Every report helps make HalalChecker more accurate and
-                    reliable for the entire Muslim community.
+                    Use our built-in report feature to flag issues, upload photos of ingredient labels, 
+                    and provide additional context. Every report helps make HalalChecker more accurate and
+                    reliable for the entire Muslim community. Reports are reviewed by our team and used to 
+                    update product information and improve our AI models.
                   </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                  <Camera className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold mb-2 text-foreground">Features</h2>
+                  <ul className="list-disc list-inside space-y-1 ml-4 text-muted-foreground">
+                    <li>Real-time barcode scanning with device camera</li>
+                    <li>Manual barcode entry support</li>
+                    <li>Product name search with region and country filtering</li>
+                    <li>Multiple AI models for ingredient analysis</li>
+                    <li>Official certification database cross-referencing</li>
+                    <li>Detailed AI explanations and reasoning</li>
+                    <li>Confidence scoring for transparency</li>
+                    <li>Flagged ingredient highlighting</li>
+                    <li>Direct links to product information on Open Food Facts</li>
+                    <li>Photo upload and reporting system</li>
+                    <li>Database check transparency with response times</li>
+                  </ul>
                 </div>
               </div>
             </div>
