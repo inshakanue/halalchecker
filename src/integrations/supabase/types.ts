@@ -144,6 +144,7 @@ export type Database = {
           ai_explanation: string | null
           analysis_method: string | null
           analysis_notes: string | null
+          barcode: string
           cert_body: string | null
           cert_country: string | null
           cert_link: string | null
@@ -154,7 +155,6 @@ export type Database = {
           id: string
           is_certified: boolean | null
           last_verified_at: string | null
-          product_id: string
           updated_at: string | null
           verdict: string
         }
@@ -162,6 +162,7 @@ export type Database = {
           ai_explanation?: string | null
           analysis_method?: string | null
           analysis_notes?: string | null
+          barcode: string
           cert_body?: string | null
           cert_country?: string | null
           cert_link?: string | null
@@ -172,7 +173,6 @@ export type Database = {
           id?: string
           is_certified?: boolean | null
           last_verified_at?: string | null
-          product_id: string
           updated_at?: string | null
           verdict: string
         }
@@ -180,6 +180,7 @@ export type Database = {
           ai_explanation?: string | null
           analysis_method?: string | null
           analysis_notes?: string | null
+          barcode?: string
           cert_body?: string | null
           cert_country?: string | null
           cert_link?: string | null
@@ -190,19 +191,10 @@ export type Database = {
           id?: string
           is_certified?: boolean | null
           last_verified_at?: string | null
-          product_id?: string
           updated_at?: string | null
           verdict?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "verdicts_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Views: {

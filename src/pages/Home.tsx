@@ -31,24 +31,7 @@ export default function Home() {
     setIsFetching(true);
 
     try {
-      // Step 1: Check local database
-      const { data: localProduct, error: localError } = await supabase
-        .from("products")
-        .select("*")
-        .eq("barcode", searchBarcode)
-        .maybeSingle();
-
-      if (localError) {
-        throw localError;
-      }
-
-      if (localProduct) {
-        navigate(`/results/${localProduct.id}`);
-        setIsFetching(false);
-        return;
-      }
-
-      // Step 2: Fetch from Open Food Facts
+      // Step 1: Fetch from Open Food Facts
       toast.info("Searching global product database...");
       const { data: externalProduct, error: fetchError } = await supabase.functions.invoke(
         'fetch-product-data',
@@ -60,78 +43,68 @@ export default function Home() {
       }
 
       if (!externalProduct.found) {
-        toast.error("Product not found. Try a different barcode or add it manually.");
+        toast.error("Product not found. Try a different barcode.");
         setIsFetching(false);
         return;
       }
 
-      // Step 3: Analyze with Lovable AI
-      toast.info("Analyzing ingredients with AI...");
-      const { data: aiAnalysis, error: aiError } = await supabase.functions.invoke(
-        'analyze-ingredients-ai',
-        { 
-          body: { 
-            productName: externalProduct.name,
-            ingredients: externalProduct.ingredientsList.length > 0 
-              ? externalProduct.ingredientsList 
-              : externalProduct.ingredients,
-            brand: externalProduct.brand,
-            region: externalProduct.region
-          } 
+      // Step 2: Check if we already have a verdict for this barcode
+      const { data: existingVerdict } = await supabase
+        .from("verdicts")
+        .select("*")
+        .eq("barcode", searchBarcode)
+        .maybeSingle();
+
+      if (!existingVerdict) {
+        // Step 3: Analyze with Lovable AI
+        toast.info("Analyzing ingredients with AI...");
+        const { data: aiAnalysis, error: aiError } = await supabase.functions.invoke(
+          'analyze-ingredients-ai',
+          { 
+            body: { 
+              productName: externalProduct.name,
+              ingredients: externalProduct.ingredientsList.length > 0 
+                ? externalProduct.ingredientsList 
+                : externalProduct.ingredients,
+              brand: externalProduct.brand,
+              region: externalProduct.region
+            } 
+          }
+        );
+
+        if (aiError) {
+          console.error('AI analysis error:', aiError);
+          toast.warning("Product found but AI analysis failed. Using basic analysis.");
         }
-      );
 
-      if (aiError) {
-        console.error('AI analysis error:', aiError);
-        toast.warning("Product found but AI analysis failed. Using basic analysis.");
-      }
-
-      // Step 4: Save product to database
-      const { data: newProduct, error: insertError } = await supabase
-        .from("products")
-        .insert({
-          barcode: externalProduct.barcode,
-          name: externalProduct.name,
-          brand: externalProduct.brand,
-          ingredients: externalProduct.ingredientsList.length > 0 
-            ? externalProduct.ingredientsList 
-            : [externalProduct.ingredients],
-          image_url: externalProduct.imageUrl,
-          region: externalProduct.region
-        })
-        .select()
-        .single();
-
-      if (insertError) {
-        throw insertError;
-      }
-
-      // Step 5: Save verdict with AI analysis
-      await supabase.from("verdicts").insert({
-        product_id: newProduct.id,
-        verdict: aiAnalysis?.verdict || 'questionable',
-        confidence_score: aiAnalysis?.confidence_score || 50,
-        analysis_notes: aiAnalysis?.analysis_notes || 'Automated analysis',
-        flagged_ingredients: aiAnalysis?.flagged_ingredients || null,
-        analysis_method: aiAnalysis ? 'ai_analysis' : 'rules_engine',
-        external_source: 'open_food_facts',
-        ai_explanation: aiAnalysis?.ai_explanation || null
-      });
-
-      // Step 6: Save to cache
-      try {
-        await supabase.from("product_cache").insert({
-          barcode: externalProduct.barcode,
-          external_data: externalProduct.rawData,
-          source: 'open_food_facts'
+        // Step 4: Save verdict with AI analysis
+        await supabase.from("verdicts").insert({
+          barcode: searchBarcode,
+          verdict: aiAnalysis?.verdict || 'questionable',
+          confidence_score: aiAnalysis?.confidence_score || 50,
+          analysis_notes: aiAnalysis?.analysis_notes || 'Automated analysis',
+          flagged_ingredients: aiAnalysis?.flagged_ingredients || null,
+          analysis_method: aiAnalysis ? 'ai_analysis' : 'rules_engine',
+          external_source: 'open_food_facts',
+          ai_explanation: aiAnalysis?.ai_explanation || null
         });
-      } catch (cacheError) {
-        // Ignore cache errors (non-critical)
-        console.log('Cache insert failed (non-critical)', cacheError);
+
+        // Step 5: Save to cache
+        try {
+          await supabase.from("product_cache").insert({
+            barcode: externalProduct.barcode,
+            external_data: externalProduct.rawData,
+            source: 'open_food_facts'
+          });
+        } catch (cacheError) {
+          // Ignore cache errors (non-critical)
+          console.log('Cache insert failed (non-critical)', cacheError);
+        }
+
+        toast.success("Product analyzed!");
       }
 
-      toast.success("Product added and analyzed!");
-      navigate(`/results/${newProduct.id}`);
+      navigate(`/results/${searchBarcode}`);
 
     } catch (error) {
       console.error("Search error:", error);
@@ -142,29 +115,7 @@ export default function Home() {
   };
 
   const handleProductSearch = async () => {
-    if (!searchQuery.trim()) {
-      toast.error("Please enter a product name");
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .ilike("name", `%${searchQuery.trim()}%`)
-      .eq("region", region)
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      toast.error("Failed to search product");
-      return;
-    }
-
-    if (data) {
-      navigate(`/results/${data.id}`);
-    } else {
-      toast.error("Product not found in our database. Try scanning a barcode instead.");
-    }
+    toast.info("Product name search is not available. Please use barcode scanning instead.");
   };
 
   const startScanner = async () => {

@@ -9,12 +9,11 @@ import { toast } from "sonner";
 import { ArrowLeft, AlertTriangle, CheckCircle2, HelpCircle, Flag, ExternalLink, Sparkles, Activity } from "lucide-react";
 
 interface Product {
-  id: string;
+  barcode: string;
   name: string;
-  brand: string | null;
-  barcode: string | null;
+  brand: string;
   ingredients: string[];
-  image_url: string | null;
+  imageUrl: string | null;
   region: string;
 }
 
@@ -33,7 +32,7 @@ interface Verdict {
 }
 
 export default function Results() {
-  const { productId } = useParams();
+  const { barcode } = useParams();
   const navigate = useNavigate();
   const [product, setProduct] = useState<Product | null>(null);
   const [verdict, setVerdict] = useState<Verdict | null>(null);
@@ -41,140 +40,95 @@ export default function Results() {
 
   useEffect(() => {
     fetchProductAndVerdict();
-  }, [productId]);
+  }, [barcode]);
 
   const fetchProductAndVerdict = async () => {
-    if (!productId) return;
+    if (!barcode) return;
 
     try {
-      const { data: productData, error: productError } = await supabase
-        .from("products")
-        .select("*")
-        .eq("id", productId)
-        .single();
+      // Step 1: Fetch product from Open Food Facts
+      const { data: productData, error: fetchError } = await supabase.functions.invoke(
+        'fetch-product-data',
+        { body: { barcode } }
+      );
 
-      if (productError || !productData) {
+      if (fetchError || !productData.found) {
         toast.error("Product not found");
         navigate("/");
         return;
       }
 
-      setProduct(productData);
+      setProduct({
+        barcode: productData.barcode,
+        name: productData.name,
+        brand: productData.brand,
+        ingredients: productData.ingredientsList.length > 0 
+          ? productData.ingredientsList 
+          : [productData.ingredients],
+        imageUrl: productData.imageUrl,
+        region: productData.region
+      });
 
-      // Check if verdict exists
+      // Step 2: Check if verdict exists
       const { data: existingVerdict } = await supabase
         .from("verdicts")
         .select("*")
-        .eq("product_id", productId)
+        .eq("barcode", barcode)
         .maybeSingle();
 
       if (existingVerdict) {
         setVerdict(existingVerdict as Verdict);
       } else {
-        // Generate verdict using rules engine
-        const newVerdict = analyzeProduct(productData);
-        setVerdict(newVerdict);
+        // This shouldn't happen normally, but generate verdict as fallback
+        toast.info("Analyzing ingredients...");
+        
+        const { data: aiAnalysis, error: aiError } = await supabase.functions.invoke(
+          'analyze-ingredients-ai',
+          { 
+            body: { 
+              productName: productData.name,
+              ingredients: productData.ingredientsList.length > 0 
+                ? productData.ingredientsList 
+                : productData.ingredients,
+              brand: productData.brand,
+              region: productData.region
+            } 
+          }
+        );
 
-        // Save verdict to database
-        const { error: verdictError } = await supabase
-          .from("verdicts")
-          .insert({
-            product_id: productId,
-            ...newVerdict,
-          });
-
-        if (verdictError) {
-          console.error("Failed to save verdict:", verdictError);
+        if (aiError) {
+          console.error('AI analysis error:', aiError);
         }
-      }
-    } catch (error) {
-      console.error("Error:", error);
-      toast.error("Failed to load product details");
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const analyzeProduct = (product: Product): Verdict => {
-    const haram_ingredients = [
-      "gelatin",
-      "pork",
-      "lard",
-      "bacon",
-      "ham",
-      "alcohol",
-      "ethyl alcohol",
-      "wine",
-      "beer",
-      "rum",
-      "vodka",
-      "whiskey",
-      "glycerin",
-      "rennet",
-    ];
-
-    const questionable_ingredients = [
-      "enzymes",
-      "emulsifiers",
-      "mono-diglycerides",
-      "natural flavors",
-      "artificial flavors",
-    ];
-
-    const ingredients_lower = product.ingredients.map((i) => i.toLowerCase());
-    const flagged: string[] = [];
-    let verdict: "halal" | "not_halal" | "unclear" = "halal";
-    let confidence_score = 90;
-    let analysis_notes = "";
-
-    // Check for haram ingredients
-    for (const haram of haram_ingredients) {
-      if (ingredients_lower.some((ing) => ing.includes(haram))) {
-        flagged.push(haram);
-        verdict = "not_halal";
-        confidence_score = 95;
-        analysis_notes = `Ingredient(s) ${flagged.join(", ")} indicate non-halal sources. Confidence: ${confidence_score}%. Check packaging or request human review.`;
-        return { 
-          verdict, 
-          confidence_score, 
-          analysis_notes, 
-          flagged_ingredients: flagged,
+        const newVerdict = {
+          verdict: aiAnalysis?.verdict || 'questionable',
+          confidence_score: aiAnalysis?.confidence_score || 50,
+          analysis_notes: aiAnalysis?.analysis_notes || 'Automated analysis',
+          flagged_ingredients: aiAnalysis?.flagged_ingredients || null,
           is_certified: false,
           cert_body: null,
           cert_country: null,
           cert_link: null,
-          analysis_method: 'rules_engine'
+          analysis_method: aiAnalysis ? 'ai_analysis' : 'rules_engine',
+          external_source: 'open_food_facts',
+          ai_explanation: aiAnalysis?.ai_explanation || null
         };
+
+        setVerdict(newVerdict as Verdict);
+
+        // Save verdict to database
+        await supabase.from("verdicts").insert({
+          barcode,
+          ...newVerdict
+        });
       }
+    } catch (error) {
+      console.error("Error:", error);
+      toast.error("Failed to load product details");
+      navigate("/");
+    } finally {
+      setLoading(false);
     }
-
-    // Check for questionable ingredients
-    for (const questionable of questionable_ingredients) {
-      if (ingredients_lower.some((ing) => ing.includes(questionable))) {
-        flagged.push(questionable);
-        verdict = "unclear";
-        confidence_score = 50;
-      }
-    }
-
-    if (verdict === "unclear") {
-      analysis_notes = `Ingredient(s) ${flagged.join(", ")} could be animal-derived. We recommend checking the manufacturer or submitting a photo for review.`;
-    } else {
-      confidence_score = 85;
-      analysis_notes = `No non-halal ingredients detected. Confidence: ${confidence_score}%. This is an automated check; see details below.`;
-    }
-
-    return { 
-      verdict, 
-      confidence_score, 
-      analysis_notes, 
-      flagged_ingredients: flagged.length > 0 ? flagged : null,
-      is_certified: false,
-      cert_body: null,
-      cert_country: null,
-      cert_link: null,
-      analysis_method: 'rules_engine'
-    };
   };
 
   const getVerdictStyles = (verdict: string, isCertified: boolean) => {
@@ -309,12 +263,10 @@ export default function Results() {
                   <span className="text-2xl font-semibold text-foreground">{verdict.confidence_score}%</span>
                   <span className="text-sm text-muted-foreground">Confidence</span>
                   {getAnalysisMethodBadge(verdict.analysis_method)}
-                  {verdict.external_source && (
-                    <Badge variant="outline" className="bg-background">
-                      <ExternalLink className="h-3 w-3 mr-1" />
-                      {verdict.external_source === 'open_food_facts' ? 'Open Food Facts' : verdict.external_source}
-                    </Badge>
-                  )}
+                  <Badge variant="outline" className="bg-background">
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    Open Food Facts
+                  </Badge>
                 </div>
               </div>
             </div>
@@ -324,9 +276,9 @@ export default function Results() {
           <Card className="p-6">
             <div className="grid md:grid-cols-3 gap-6">
               <div className="md:col-span-1">
-                {product.image_url ? (
+                {product.imageUrl ? (
                   <img
-                    src={product.image_url}
+                    src={product.imageUrl}
                     alt={product.name}
                     className="w-full rounded-lg border border-border"
                   />
@@ -345,23 +297,19 @@ export default function Results() {
                   )}
                 </div>
 
-                {product.barcode && (
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Barcode</p>
-                    <p className="text-muted-foreground">{product.barcode}</p>
-                    {verdict.external_source === 'open_food_facts' && (
-                      <a 
-                        href={`https://world.openfoodfacts.org/product/${product.barcode}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-primary hover:underline inline-flex items-center gap-1 mt-1"
-                      >
-                        View on Open Food Facts
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    )}
-                  </div>
-                )}
+                <div>
+                  <p className="text-sm font-medium text-foreground">Barcode</p>
+                  <p className="text-muted-foreground">{product.barcode}</p>
+                  <a 
+                    href={`https://world.openfoodfacts.org/product/${product.barcode}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-primary hover:underline inline-flex items-center gap-1 mt-1"
+                  >
+                    View on Open Food Facts
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
 
                 {verdict.is_certified && verdict.cert_link && (
                   <div>
@@ -431,7 +379,7 @@ export default function Results() {
           {/* Actions */}
           <Card className="p-6">
             <div className="flex flex-col sm:flex-row gap-4">
-              <Link to={`/report/${product.id}`} className="flex-1">
+              <Link to={`/report/${product.barcode}`} className="flex-1">
                 <Button variant="outline" className="w-full">
                   <Flag className="mr-2 h-4 w-4" />
                   Report Issue
