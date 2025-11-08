@@ -108,7 +108,7 @@ export function Layout({ children }: LayoutProps) {
 
       <footer className="border-t border-border bg-card/30 backdrop-blur-sm">
         <div className="container mx-auto px-4 py-6 text-center text-sm text-muted-foreground">
-          <p>© 2024 HalalCheck. For informational purposes only. Not a substitute for official halal certification.</p>
+          <p>© {new Date().getFullYear()} HalalCheck. For informational purposes only. Not a substitute for official halal certification.</p>
         </div>
       </footer>
     </div>
