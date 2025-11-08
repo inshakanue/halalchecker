@@ -40,118 +40,153 @@ serve(async (req) => {
       }
     }
 
-    // Check 2: Query VerifyHalal database via web scraping
-    if (!certificationData.is_certified && productName) {
-      try {
-        const searchUrl = `https://verifyhalal.com/product-result.html?keyword=${encodeURIComponent(productName)}`;
-        console.log('Searching VerifyHalal:', searchUrl);
-        
-        const response = await fetch(searchUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-          }
-        });
+    // Check 2 & 3: Run all external checks in parallel for speed
+    if (!certificationData.is_certified) {
+      const checks: Promise<any>[] = [];
 
-        if (response.ok) {
-          const html = await response.text();
-          
-          // Look for halal certification indicators in the HTML
-          const hasHalalCert = html.includes('halal-certified') || 
-                              html.includes('certified halal') ||
-                              html.includes('certification-badge');
+      // VerifyHalal check
+      if (productName) {
+        checks.push(
+          (async () => {
+            try {
+              const searchUrl = `https://verifyhalal.com/product-result.html?keyword=${encodeURIComponent(productName)}`;
+              console.log('Searching VerifyHalal:', searchUrl);
+              
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-          // Extract certification body if found
-          const certBodyMatch = html.match(/certification(?:-|\s+)body["\s:]+([^"<>\n]+)/i);
-          const countryMatch = html.match(/certified(?:-|\s+)in["\s:]+([^"<>\n]+)/i);
+              const response = await fetch(searchUrl, {
+                headers: {
+                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                },
+                signal: controller.signal
+              });
 
-          if (hasHalalCert || certBodyMatch) {
-            console.log('Found certification on VerifyHalal');
-            certificationData.is_certified = true;
-            certificationData.cert_body = certBodyMatch?.[1]?.trim() || 'VerifyHalal Listed';
-            certificationData.cert_country = countryMatch?.[1]?.trim() || null;
-            certificationData.cert_link = searchUrl;
-            certificationData.confidence_score = 90;
-            certificationData.external_source = 'verifyhalal';
-          }
-        }
-      } catch (error) {
-        console.error('Error checking VerifyHalal:', error);
+              clearTimeout(timeoutId);
+
+              if (response.ok) {
+                const html = await response.text();
+                
+                const hasHalalCert = html.includes('halal-certified') || 
+                                    html.includes('certified halal') ||
+                                    html.includes('certification-badge');
+
+                const certBodyMatch = html.match(/certification(?:-|\s+)body["\s:]+([^"<>\n]+)/i);
+                const countryMatch = html.match(/certified(?:-|\s+)in["\s:]+([^"<>\n]+)/i);
+
+                if (hasHalalCert || certBodyMatch) {
+                  console.log('Found certification on VerifyHalal');
+                  return {
+                    is_certified: true,
+                    cert_body: certBodyMatch?.[1]?.trim() || 'VerifyHalal Listed',
+                    cert_country: countryMatch?.[1]?.trim() || null,
+                    cert_link: searchUrl,
+                    confidence_score: 90,
+                    external_source: 'verifyhalal'
+                  };
+                }
+              }
+            } catch (error) {
+              console.log('Error checking VerifyHalal:', error instanceof Error ? error.message : 'Unknown error');
+            }
+            return null;
+          })()
+        );
       }
-    }
 
-    // Check 3: Common halal certification databases patterns
-    if (!certificationData.is_certified && barcode) {
-      const certDatabases = [
-        {
-          name: 'JAKIM',
-          country: 'Malaysia',
-          url: `https://www.halal.gov.my/v4/index.php?data=bW9kdWxlcy9uZXdzOzs7Ow==&utama=panduan&ids=${barcode}`
-        },
-        {
-          name: 'MUI',
-          country: 'Indonesia',
-          url: `https://www.halalmui.org/mui14/main/page/produk-halal-mui/${barcode}`
-        },
-        {
-          name: 'HFA',
-          country: 'United States',
-          url: `https://halalfoodauthority.com/verify?barcode=${barcode}`
-        },
-        {
-          name: 'IFANCA',
-          country: 'International',
-          url: `https://www.ifanca.org/halal-certification/verify/${barcode}`
-        },
-        {
-          name: 'EIAC',
-          country: 'United Arab Emirates',
-          url: `https://www.eiac.gov.ae/en/halal-products/search?code=${barcode}`
-        },
-        {
-          name: 'HMC',
-          country: 'United Kingdom',
-          url: `https://www.halalhmc.org/verify-product/${barcode}`
-        },
-        {
-          name: 'SANHA',
-          country: 'South Africa',
-          url: `https://www.sanha.co.za/halaal-search/?product_code=${barcode}`
-        },
-        {
-          name: 'HFCE',
-          country: 'Canada',
-          url: `https://halalfoodcouncil.ca/verify/${barcode}`
-        }
-      ];
-
-      for (const db of certDatabases) {
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-
-          const response = await fetch(db.url, {
-            method: 'HEAD',
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-              'Accept': 'text/html,application/json'
-            },
-            signal: controller.signal
-          });
-
-          clearTimeout(timeoutId);
-
-          if (response.ok && response.status === 200) {
-            console.log(`Found potential certification in ${db.name} (${db.country})`);
-            certificationData.is_certified = true;
-            certificationData.cert_body = db.name;
-            certificationData.cert_country = db.country;
-            certificationData.cert_link = db.url;
-            certificationData.confidence_score = 95;
-            certificationData.external_source = db.name.toLowerCase();
-            break;
+      // Certification database checks
+      if (barcode) {
+        const certDatabases = [
+          {
+            name: 'JAKIM',
+            country: 'Malaysia',
+            url: `https://www.halal.gov.my/v4/index.php?data=bW9kdWxlcy9uZXdzOzs7Ow==&utama=panduan&ids=${barcode}`
+          },
+          {
+            name: 'MUI',
+            country: 'Indonesia',
+            url: `https://www.halalmui.org/mui14/main/page/produk-halal-mui/${barcode}`
+          },
+          {
+            name: 'HFA',
+            country: 'United States',
+            url: `https://halalfoodauthority.com/verify?barcode=${barcode}`
+          },
+          {
+            name: 'IFANCA',
+            country: 'International',
+            url: `https://www.ifanca.org/halal-certification/verify/${barcode}`
+          },
+          {
+            name: 'EIAC',
+            country: 'United Arab Emirates',
+            url: `https://www.eiac.gov.ae/en/halal-products/search?code=${barcode}`
+          },
+          {
+            name: 'HMC',
+            country: 'United Kingdom',
+            url: `https://www.halalhmc.org/verify-product/${barcode}`
+          },
+          {
+            name: 'SANHA',
+            country: 'South Africa',
+            url: `https://www.sanha.co.za/halaal-search/?product_code=${barcode}`
+          },
+          {
+            name: 'HFCE',
+            country: 'Canada',
+            url: `https://halalfoodcouncil.ca/verify/${barcode}`
           }
-        } catch (error) {
-          console.log(`Could not check ${db.name}:`, error instanceof Error ? error.message : 'Unknown error');
+        ];
+
+        // Add all database checks as parallel promises
+        certDatabases.forEach(db => {
+          checks.push(
+            (async () => {
+              try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+                const response = await fetch(db.url, {
+                  method: 'HEAD',
+                  headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Accept': 'text/html,application/json'
+                  },
+                  signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (response.ok && response.status === 200) {
+                  console.log(`Found potential certification in ${db.name} (${db.country})`);
+                  return {
+                    is_certified: true,
+                    cert_body: db.name,
+                    cert_country: db.country,
+                    cert_link: db.url,
+                    confidence_score: 95,
+                    external_source: db.name.toLowerCase()
+                  };
+                }
+              } catch (error) {
+                console.log(`Could not check ${db.name}:`, error instanceof Error ? error.message : 'Unknown error');
+              }
+              return null;
+            })()
+          );
+        });
+      }
+
+      // Execute all checks in parallel and get the first successful result
+      console.log(`Running ${checks.length} certification checks in parallel...`);
+      const results = await Promise.allSettled(checks);
+      
+      for (const result of results) {
+        if (result.status === 'fulfilled' && result.value && result.value.is_certified) {
+          Object.assign(certificationData, result.value);
+          console.log('Found certification:', certificationData.cert_body);
+          break;
         }
       }
     }
