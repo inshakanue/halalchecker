@@ -112,6 +112,8 @@ export default function Home() {
                     <SelectItem value="UAE">UAE</SelectItem>
                     <SelectItem value="MY">Malaysia</SelectItem>
                     <SelectItem value="ID">Indonesia</SelectItem>
+                    <SelectItem value="IN">India</SelectItem>
+                    <SelectItem value="SEA">South East Asia</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
