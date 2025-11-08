@@ -79,44 +79,36 @@ export type Database = {
       }
       reports: {
         Row: {
+          barcode: string | null
           comment: string | null
           created_at: string | null
           id: string
           photo_url: string | null
-          product_id: string | null
           status: string
           updated_at: string | null
           user_id: string
         }
         Insert: {
+          barcode?: string | null
           comment?: string | null
           created_at?: string | null
           id?: string
           photo_url?: string | null
-          product_id?: string | null
           status?: string
           updated_at?: string | null
           user_id: string
         }
         Update: {
+          barcode?: string | null
           comment?: string | null
           created_at?: string | null
           id?: string
           photo_url?: string | null
-          product_id?: string | null
           status?: string
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "reports_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       user_roles: {
         Row: {

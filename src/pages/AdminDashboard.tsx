@@ -7,19 +7,15 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle2, XCircle, HelpCircle } from "lucide-react";
+import { CheckCircle2, HelpCircle } from "lucide-react";
 
 interface Report {
   id: string;
-  product_id: string;
+  barcode: string | null;
   comment: string | null;
   photo_url: string | null;
   status: string;
   created_at: string;
-  products: {
-    name: string;
-    brand: string | null;
-  };
 }
 
 export default function AdminDashboard() {
@@ -62,13 +58,7 @@ export default function AdminDashboard() {
     try {
       const { data, error } = await supabase
         .from("reports")
-        .select(`
-          *,
-          products (
-            name,
-            brand
-          )
-        `)
+        .select("*")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -115,6 +105,88 @@ export default function AdminDashboard() {
   const pendingReports = reports.filter((r) => r.status === "pending");
   const reviewedReports = reports.filter((r) => r.status === "reviewed");
   const resolvedReports = reports.filter((r) => r.status === "resolved");
+
+  const renderReportCard = (report: Report) => (
+    <Card key={report.id} className="p-6">
+      <div className="space-y-4">
+        <div className="flex justify-between items-start">
+          <div>
+            <h3 className="font-semibold text-lg text-foreground">
+              Product Barcode: {report.barcode || "Unknown"}
+            </h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              {new Date(report.created_at).toLocaleDateString()}
+            </p>
+          </div>
+          <Badge 
+            variant="outline" 
+            className={
+              report.status === "pending" ? "bg-unclear-bg text-unclear" :
+              report.status === "reviewed" ? "bg-primary/10 text-primary" :
+              "bg-halal-bg text-halal"
+            }
+          >
+            {report.status}
+          </Badge>
+        </div>
+
+        {report.comment && (
+          <div className="bg-muted/50 p-3 rounded-lg">
+            <p className="text-sm text-foreground">{report.comment}</p>
+          </div>
+        )}
+
+        {report.photo_url && (
+          <div>
+            <img
+              src={report.photo_url}
+              alt="Report photo"
+              className="max-w-xs rounded-lg border border-border"
+            />
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          {report.barcode && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate(`/results/${report.barcode}`)}
+            >
+              View Product
+            </Button>
+          )}
+          {report.status === "pending" && (
+            <>
+              <Button
+                size="sm"
+                onClick={() => updateReportStatus(report.id, "reviewed")}
+              >
+                Mark as Reviewed
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="bg-halal-bg text-halal hover:bg-halal-bg/80"
+                onClick={() => updateReportStatus(report.id, "resolved")}
+              >
+                Mark as Resolved
+              </Button>
+            </>
+          )}
+          {report.status === "reviewed" && (
+            <Button
+              size="sm"
+              className="bg-halal hover:bg-halal/90"
+              onClick={() => updateReportStatus(report.id, "resolved")}
+            >
+              Mark as Resolved
+            </Button>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
 
   return (
     <Layout>
@@ -170,68 +242,7 @@ export default function AdminDashboard() {
                   <p className="text-muted-foreground">No pending reports</p>
                 </Card>
               ) : (
-                pendingReports.map((report) => (
-                  <Card key={report.id} className="p-6">
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-semibold text-lg text-foreground">
-                            {report.products.name}
-                          </h3>
-                          {report.products.brand && (
-                            <p className="text-sm text-muted-foreground">{report.products.brand}</p>
-                          )}
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {new Date(report.created_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <Badge variant="outline" className="bg-unclear-bg text-unclear">
-                          {report.status}
-                        </Badge>
-                      </div>
-
-                      {report.comment && (
-                        <div className="bg-muted/50 p-3 rounded-lg">
-                          <p className="text-sm text-foreground">{report.comment}</p>
-                        </div>
-                      )}
-
-                      {report.photo_url && (
-                        <div>
-                          <img
-                            src={report.photo_url}
-                            alt="Report photo"
-                            className="max-w-xs rounded-lg border border-border"
-                          />
-                        </div>
-                      )}
-
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => navigate(`/results/${report.product_id}`)}
-                        >
-                          View Product
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => updateReportStatus(report.id, "reviewed")}
-                        >
-                          Mark as Reviewed
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="bg-halal-bg text-halal hover:bg-halal-bg/80"
-                          onClick={() => updateReportStatus(report.id, "resolved")}
-                        >
-                          Mark as Resolved
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                ))
+                pendingReports.map(renderReportCard)
               )}
             </TabsContent>
 
@@ -241,51 +252,7 @@ export default function AdminDashboard() {
                   <p className="text-muted-foreground">No reviewed reports</p>
                 </Card>
               ) : (
-                reviewedReports.map((report) => (
-                  <Card key={report.id} className="p-6">
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-semibold text-lg text-foreground">
-                            {report.products.name}
-                          </h3>
-                          {report.products.brand && (
-                            <p className="text-sm text-muted-foreground">{report.products.brand}</p>
-                          )}
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {new Date(report.created_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <Badge variant="outline" className="bg-primary/10 text-primary">
-                          {report.status}
-                        </Badge>
-                      </div>
-
-                      {report.comment && (
-                        <div className="bg-muted/50 p-3 rounded-lg">
-                          <p className="text-sm text-foreground">{report.comment}</p>
-                        </div>
-                      )}
-
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => navigate(`/results/${report.product_id}`)}
-                        >
-                          View Product
-                        </Button>
-                        <Button
-                          size="sm"
-                          className="bg-halal hover:bg-halal/90"
-                          onClick={() => updateReportStatus(report.id, "resolved")}
-                        >
-                          Mark as Resolved
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                ))
+                reviewedReports.map(renderReportCard)
               )}
             </TabsContent>
 
@@ -295,42 +262,7 @@ export default function AdminDashboard() {
                   <p className="text-muted-foreground">No resolved reports</p>
                 </Card>
               ) : (
-                resolvedReports.map((report) => (
-                  <Card key={report.id} className="p-6">
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-semibold text-lg text-foreground">
-                            {report.products.name}
-                          </h3>
-                          {report.products.brand && (
-                            <p className="text-sm text-muted-foreground">{report.products.brand}</p>
-                          )}
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {new Date(report.created_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <Badge variant="outline" className="bg-halal-bg text-halal">
-                          {report.status}
-                        </Badge>
-                      </div>
-
-                      {report.comment && (
-                        <div className="bg-muted/50 p-3 rounded-lg">
-                          <p className="text-sm text-foreground">{report.comment}</p>
-                        </div>
-                      )}
-
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => navigate(`/results/${report.product_id}`)}
-                      >
-                        View Product
-                      </Button>
-                    </div>
-                  </Card>
-                ))
+                resolvedReports.map(renderReportCard)
               )}
             </TabsContent>
           </Tabs>

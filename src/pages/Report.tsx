@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Upload } from "lucide-react";
 
 export default function Report() {
-  const { productId } = useParams();
+  const { barcode } = useParams();
   const navigate = useNavigate();
   const [comment, setComment] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
@@ -71,7 +71,7 @@ export default function Report() {
       const { error: insertError } = await supabase
         .from("reports")
         .insert({
-          product_id: productId,
+          barcode: barcode,
           user_id: user.id,
           comment: comment || null,
           photo_url: photoUrl,
@@ -83,7 +83,7 @@ export default function Report() {
       }
 
       toast.success("Report submitted successfully! Thank you for your contribution.");
-      navigate(`/results/${productId}`);
+      navigate(`/results/${barcode}`);
     } catch (error) {
       console.error("Error submitting report:", error);
       toast.error("Failed to submit report. Please try again.");
@@ -96,7 +96,7 @@ export default function Report() {
     <Layout>
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto space-y-6">
-          <Button variant="ghost" onClick={() => navigate(`/results/${productId}`)} className="mb-4">
+          <Button variant="ghost" onClick={() => navigate(`/results/${barcode}`)} className="mb-4">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Results
           </Button>
