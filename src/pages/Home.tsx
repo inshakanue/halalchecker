@@ -227,7 +227,7 @@ export default function Home() {
               {/* Region and Country Selectors */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Region (Optional)</label>
+                  <label className="text-sm font-medium text-foreground">Region</label>
                   <Select value={selectedRegion} onValueChange={setSelectedRegion}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select region" />
@@ -246,7 +246,7 @@ export default function Home() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Country (Optional)</label>
+                  <label className="text-sm font-medium text-foreground">Country</label>
                   <Select value={selectedCountry} onValueChange={setSelectedCountry}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select country" />
