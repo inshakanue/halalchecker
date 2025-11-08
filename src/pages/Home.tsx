@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Camera, Search, ScanBarcode, Loader2, ShoppingCart } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,6 +29,16 @@ export default function Home() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchResultsDialog, setSearchResultsDialog] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
+
+  // Cleanup scanner on unmount
+  useEffect(() => {
+    return () => {
+      if (html5QrCodeRef.current) {
+        html5QrCodeRef.current.stop().catch(() => {});
+      }
+    };
+  }, []);
   const handleBarcodeSearch = async (barcodeValue?: string) => {
     const searchBarcode = barcodeValue || barcode.trim();
     if (!searchBarcode) {
@@ -161,8 +171,8 @@ export default function Home() {
     setIsScanning(true);
     setScannerDialog(true);
     try {
-      const html5QrCode = new Html5Qrcode("reader");
-      await html5QrCode.start({
+      html5QrCodeRef.current = new Html5Qrcode("reader");
+      await html5QrCodeRef.current.start({
         facingMode: "environment"
       }, {
         fps: 10,
@@ -172,7 +182,10 @@ export default function Home() {
         }
       }, async decodedText => {
         // Stop scanning
-        await html5QrCode.stop();
+        if (html5QrCodeRef.current) {
+          await html5QrCodeRef.current.stop();
+          html5QrCodeRef.current = null;
+        }
         setScannerDialog(false);
         setIsScanning(false);
 
@@ -188,14 +201,17 @@ export default function Home() {
       toast.error("Failed to start camera. Please check permissions.");
       setScannerDialog(false);
       setIsScanning(false);
+      html5QrCodeRef.current = null;
     }
   };
   const stopScanner = async () => {
     try {
-      const html5QrCode = new Html5Qrcode("reader");
-      await html5QrCode.stop();
+      if (html5QrCodeRef.current) {
+        await html5QrCodeRef.current.stop();
+        html5QrCodeRef.current = null;
+      }
     } catch (error) {
-      // Ignore stop errors
+      console.error("Error stopping scanner:", error);
     }
     setScannerDialog(false);
     setIsScanning(false);
