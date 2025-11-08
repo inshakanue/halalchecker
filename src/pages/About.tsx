@@ -8,9 +8,9 @@ export default function About() {
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto space-y-8">
           <div className="text-center space-y-4">
-            <h1 className="text-4xl font-bold text-foreground">About HalalCheck</h1>
+            <h1 className="text-4xl font-bold text-foreground">About HalalChecker</h1>
             <p className="text-lg text-muted-foreground">
-              Making halal verification accessible to everyone
+              Making halal verification simple and accessible through AI-powered ingredient analysis
             </p>
           </div>
 
@@ -23,9 +23,10 @@ export default function About() {
                 <div>
                   <h2 className="text-xl font-semibold mb-2 text-foreground">Our Mission</h2>
                   <p className="text-muted-foreground">
-                    HalalCheck provides an automated ingredient analysis tool to help Muslim consumers
-                    make informed decisions about food products. Our rules engine checks ingredients
-                    against known halal standards to provide quick, preliminary assessments.
+                    HalalChecker provides instant ingredient analysis to help Muslim consumers
+                    make informed decisions about food products. Using advanced AI technology and data
+                    from Open Food Facts, we analyze product ingredients and provide clear halal status
+                    assessments with confidence scores.
                   </p>
                 </div>
               </div>
@@ -37,10 +38,12 @@ export default function About() {
                 <div>
                   <h2 className="text-xl font-semibold mb-2 text-foreground">How It Works</h2>
                   <p className="text-muted-foreground">
-                    Our system analyzes product ingredients using a comprehensive database of halal and
-                    haram substances. We cross-reference ingredients with Islamic dietary guidelines and
-                    provide a confidence score based on available information. Products with official
-                    halal certifications receive higher confidence scores.
+                    Simply scan a product barcode or search by product name. You can filter results by
+                    region or country for more accurate matches. Our AI-powered system retrieves product
+                    data from Open Food Facts and analyzes each ingredient against Islamic dietary guidelines.
+                    We provide a clear verdict (Halal, Not Halal, or Unclear) with a confidence score and
+                    detailed analysis of flagged ingredients. Products with official halal certifications
+                    are automatically recognized.
                   </p>
                 </div>
               </div>
@@ -52,10 +55,10 @@ export default function About() {
                 <div>
                   <h2 className="text-xl font-semibold mb-2 text-foreground">Community Driven</h2>
                   <p className="text-muted-foreground">
-                    Help us improve! Users can report incorrect information, questionable ingredients,
-                    or missing certifications. Our admin team reviews all reports to keep our database
-                    accurate and up-to-date. Together, we build a more reliable halal verification
-                    system.
+                    Help us improve! Found incorrect information or have concerns about a product analysis?
+                    Use our built-in report feature to flag issues, suggest corrections, or request human
+                    review for uncertain products. Every report helps make HalalChecker more accurate and
+                    reliable for the entire Muslim community.
                   </p>
                 </div>
               </div>
@@ -70,8 +73,8 @@ export default function About() {
                 
                 <div className="space-y-3 text-sm text-muted-foreground">
                   <p>
-                    <strong className="text-foreground">This is NOT an official certification service.</strong> HalalCheck
-                    provides automated ingredient analysis for informational purposes only. Our verdicts
+                    <strong className="text-foreground">This is NOT an official certification service.</strong> HalalChecker
+                    provides AI-powered ingredient analysis for informational purposes only. Our verdicts
                     should not be considered as formal halal certification.
                   </p>
 
