@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.analyze-ingredients-ai]
 verify_jwt = false
+
+[functions.search-products-by-name]
+verify_jwt = false

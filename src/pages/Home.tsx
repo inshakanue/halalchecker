@@ -4,12 +4,20 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Camera, Search, ScanBarcode, Loader2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Camera, Search, ScanBarcode, Loader2, ShoppingCart } from "lucide-react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Html5Qrcode } from "html5-qrcode";
+
+interface SearchResult {
+  barcode: string;
+  name: string;
+  brand: string;
+  imageUrl: string | null;
+  hasIngredients: boolean;
+}
 
 export default function Home() {
   const navigate = useNavigate();
@@ -19,6 +27,9 @@ export default function Home() {
   const [isScanning, setIsScanning] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [scannerDialog, setScannerDialog] = useState(false);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searchResultsDialog, setSearchResultsDialog] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
 
   const handleBarcodeSearch = async (barcodeValue?: string) => {
     const searchBarcode = barcodeValue || barcode.trim();
@@ -115,7 +126,55 @@ export default function Home() {
   };
 
   const handleProductSearch = async () => {
-    toast.info("Product name search is not available. Please use barcode scanning instead.");
+    const query = searchQuery.trim();
+    
+    if (!query) {
+      toast.error("Please enter a product name");
+      return;
+    }
+
+    setIsSearching(true);
+
+    try {
+      toast.info("Searching products...");
+      
+      const { data, error } = await supabase.functions.invoke(
+        'search-products-by-name',
+        { 
+          body: { 
+            productName: query,
+            region: region === 'global' ? 'world' : region.toLowerCase()
+          } 
+        }
+      );
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data.products || data.products.length === 0) {
+        toast.error("No products found. Try a different search term.");
+        setIsSearching(false);
+        return;
+      }
+
+      setSearchResults(data.products);
+      setSearchResultsDialog(true);
+      toast.success(`Found ${data.products.length} products`);
+
+    } catch (error) {
+      console.error("Search error:", error);
+      toast.error("Failed to search products. Please try again.");
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleSelectProduct = async (selectedBarcode: string) => {
+    setSearchResultsDialog(false);
+    setSearchResults([]);
+    setSearchQuery("");
+    await handleBarcodeSearch(selectedBarcode);
   };
 
   const startScanner = async () => {
@@ -275,8 +334,8 @@ export default function Home() {
                     className="flex-1"
                     disabled={isFetching}
                   />
-                  <Button onClick={handleProductSearch} size="lg" disabled={isFetching}>
-                    <Search className="h-5 w-5" />
+                  <Button onClick={handleProductSearch} size="lg" disabled={isFetching || isSearching}>
+                    {isSearching ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
                   </Button>
                 </div>
               </div>
@@ -334,6 +393,52 @@ export default function Home() {
               Cancel
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Search Results Dialog */}
+      <Dialog open={searchResultsDialog} onOpenChange={setSearchResultsDialog}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Search Results</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 overflow-y-auto max-h-[60vh]">
+            {searchResults.map((product) => (
+              <Card 
+                key={product.barcode} 
+                className="p-4 hover:border-primary/50 transition-colors cursor-pointer"
+                onClick={() => handleSelectProduct(product.barcode)}
+              >
+                <div className="flex gap-4">
+                  {product.imageUrl ? (
+                    <img 
+                      src={product.imageUrl} 
+                      alt={product.name}
+                      className="w-20 h-20 object-contain rounded border border-border"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 bg-muted rounded border border-border flex items-center justify-center">
+                      <ShoppingCart className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-foreground truncate">{product.name}</h3>
+                    <p className="text-sm text-muted-foreground">{product.brand}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Barcode: {product.barcode}</p>
+                    {!product.hasIngredients && (
+                      <p className="text-xs text-warning mt-1">⚠️ Limited ingredient data</p>
+                    )}
+                  </div>
+                  <Button size="sm" variant="outline">
+                    Select
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+          <Button variant="outline" onClick={() => setSearchResultsDialog(false)} className="w-full">
+            Cancel
+          </Button>
         </DialogContent>
       </Dialog>
     </Layout>
