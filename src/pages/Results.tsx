@@ -15,15 +15,18 @@ interface Product {
   barcode: string | null;
   ingredients: string[];
   image_url: string | null;
-  certifications: string[] | null;
   region: string;
 }
 
 interface Verdict {
   verdict: "halal" | "not_halal" | "unclear";
-  confidence: number;
-  reason: string;
+  confidence_score: number;
+  analysis_notes: string;
   flagged_ingredients: string[] | null;
+  is_certified: boolean | null;
+  cert_body: string | null;
+  cert_country: string | null;
+  cert_link: string | null;
 }
 
 export default function Results() {
@@ -63,7 +66,7 @@ export default function Results() {
         .maybeSingle();
 
       if (existingVerdict) {
-        setVerdict(existingVerdict);
+        setVerdict(existingVerdict as Verdict);
       } else {
         // Generate verdict using rules engine
         const newVerdict = analyzeProduct(productData);
@@ -118,17 +121,26 @@ export default function Results() {
     const ingredients_lower = product.ingredients.map((i) => i.toLowerCase());
     const flagged: string[] = [];
     let verdict: "halal" | "not_halal" | "unclear" = "halal";
-    let confidence = 90;
-    let reason = "";
+    let confidence_score = 90;
+    let analysis_notes = "";
 
     // Check for haram ingredients
     for (const haram of haram_ingredients) {
       if (ingredients_lower.some((ing) => ing.includes(haram))) {
         flagged.push(haram);
         verdict = "not_halal";
-        confidence = 95;
-        reason = `Contains haram ingredient(s): ${flagged.join(", ")}. These ingredients are not permissible in Islamic dietary laws.`;
-        return { verdict, confidence, reason, flagged_ingredients: flagged };
+        confidence_score = 95;
+        analysis_notes = `Ingredient(s) ${flagged.join(", ")} indicate non-halal sources. Confidence: ${confidence_score}%. Check packaging or request human review.`;
+        return { 
+          verdict, 
+          confidence_score, 
+          analysis_notes, 
+          flagged_ingredients: flagged,
+          is_certified: false,
+          cert_body: null,
+          cert_country: null,
+          cert_link: null
+        };
       }
     }
 
@@ -137,36 +149,51 @@ export default function Results() {
       if (ingredients_lower.some((ing) => ing.includes(questionable))) {
         flagged.push(questionable);
         verdict = "unclear";
-        confidence = 50;
+        confidence_score = 50;
       }
     }
 
     if (verdict === "unclear") {
-      reason = `Contains questionable ingredient(s): ${flagged.join(", ")}. These ingredients may be derived from non-halal sources. Verification recommended.`;
+      analysis_notes = `Ingredient(s) ${flagged.join(", ")} could be animal-derived. We recommend checking the manufacturer or submitting a photo for review.`;
     } else {
-      // Check for halal certification
-      if (product.certifications?.some((cert) => cert.toLowerCase().includes("halal"))) {
-        confidence = 98;
-        reason = "Product has halal certification and contains no known haram ingredients.";
-      } else {
-        confidence = 85;
-        reason = "No haram ingredients detected, but product lacks official halal certification.";
-      }
+      confidence_score = 85;
+      analysis_notes = `No non-halal ingredients detected. Confidence: ${confidence_score}%. This is an automated check; see details below.`;
     }
 
-    return { verdict, confidence, reason, flagged_ingredients: flagged.length > 0 ? flagged : null };
+    return { 
+      verdict, 
+      confidence_score, 
+      analysis_notes, 
+      flagged_ingredients: flagged.length > 0 ? flagged : null,
+      is_certified: false,
+      cert_body: null,
+      cert_country: null,
+      cert_link: null
+    };
   };
 
-  const getVerdictStyles = (verdict: string) => {
-    switch (verdict) {
-      case "halal":
+  const getVerdictStyles = (verdict: string, isCertified: boolean) => {
+    if (verdict === "halal") {
+      if (isCertified) {
         return {
           bg: "bg-halal-bg",
           border: "border-halal",
           text: "text-halal",
           icon: CheckCircle2,
-          label: "Halal",
+          label: "Halal (Certified)",
         };
+      } else {
+        return {
+          bg: "bg-halal-bg",
+          border: "border-halal",
+          text: "text-halal",
+          icon: CheckCircle2,
+          label: "Halal (Automated)",
+        };
+      }
+    }
+    
+    switch (verdict) {
       case "not_halal":
         return {
           bg: "bg-not-halal-bg",
@@ -218,8 +245,16 @@ export default function Results() {
     );
   }
 
-  const styles = getVerdictStyles(verdict.verdict);
+  const styles = getVerdictStyles(verdict.verdict, verdict.is_certified || false);
   const VerdictIcon = styles.icon;
+
+  // Format verdict message based on type
+  const getVerdictMessage = () => {
+    if (verdict.verdict === "halal" && verdict.is_certified) {
+      return `Product is certified halal by ${verdict.cert_body || "a recognized certification body"} for ${verdict.cert_country || "the region"}.`;
+    }
+    return verdict.analysis_notes;
+  };
 
   return (
     <Layout>
@@ -241,7 +276,7 @@ export default function Results() {
               <div className="flex-1 text-center md:text-left space-y-2">
                 <h2 className={`text-3xl font-bold ${styles.text}`}>{styles.label}</h2>
                 <div className="flex items-center gap-3 justify-center md:justify-start">
-                  <span className="text-2xl font-semibold text-foreground">{verdict.confidence}%</span>
+                  <span className="text-2xl font-semibold text-foreground">{verdict.confidence_score}%</span>
                   <span className="text-sm text-muted-foreground">Confidence</span>
                 </div>
               </div>
@@ -280,16 +315,17 @@ export default function Results() {
                   </div>
                 )}
 
-                {product.certifications && product.certifications.length > 0 && (
+                {verdict.is_certified && verdict.cert_link && (
                   <div>
-                    <p className="text-sm font-medium text-foreground mb-2">Certifications</p>
-                    <div className="flex flex-wrap gap-2">
-                      {product.certifications.map((cert, index) => (
-                        <Badge key={index} variant="outline" className="bg-primary/5">
-                          {cert}
-                        </Badge>
-                      ))}
-                    </div>
+                    <p className="text-sm font-medium text-foreground mb-2">Certification</p>
+                    <a 
+                      href={verdict.cert_link} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      View Certificate
+                    </a>
                   </div>
                 )}
               </div>
@@ -299,7 +335,7 @@ export default function Results() {
           {/* Reason */}
           <Card className="p-6">
             <h3 className="font-semibold text-lg mb-3 text-foreground">Why this verdict?</h3>
-            <p className="text-muted-foreground leading-relaxed">{verdict.reason}</p>
+            <p className="text-muted-foreground leading-relaxed">{getVerdictMessage()}</p>
           </Card>
 
           {/* Ingredients */}
