@@ -91,20 +91,57 @@ serve(async (req) => {
           name: 'MUI',
           country: 'Indonesia',
           url: `https://www.halalmui.org/mui14/main/page/produk-halal-mui/${barcode}`
+        },
+        {
+          name: 'HFA',
+          country: 'United States',
+          url: `https://halalfoodauthority.com/verify?barcode=${barcode}`
+        },
+        {
+          name: 'IFANCA',
+          country: 'International',
+          url: `https://www.ifanca.org/halal-certification/verify/${barcode}`
+        },
+        {
+          name: 'EIAC',
+          country: 'United Arab Emirates',
+          url: `https://www.eiac.gov.ae/en/halal-products/search?code=${barcode}`
+        },
+        {
+          name: 'HMC',
+          country: 'United Kingdom',
+          url: `https://www.halalhmc.org/verify-product/${barcode}`
+        },
+        {
+          name: 'SANHA',
+          country: 'South Africa',
+          url: `https://www.sanha.co.za/halaal-search/?product_code=${barcode}`
+        },
+        {
+          name: 'HFCE',
+          country: 'Canada',
+          url: `https://halalfoodcouncil.ca/verify/${barcode}`
         }
       ];
 
       for (const db of certDatabases) {
         try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
           const response = await fetch(db.url, {
             method: 'HEAD',
             headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Accept': 'text/html,application/json'
+            },
+            signal: controller.signal
           });
 
+          clearTimeout(timeoutId);
+
           if (response.ok && response.status === 200) {
-            console.log(`Found potential certification in ${db.name}`);
+            console.log(`Found potential certification in ${db.name} (${db.country})`);
             certificationData.is_certified = true;
             certificationData.cert_body = db.name;
             certificationData.cert_country = db.country;
