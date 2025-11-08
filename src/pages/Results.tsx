@@ -244,6 +244,54 @@ export default function Results() {
     }
   };
 
+  // Pretty render for JSON-like AI explanations
+  const formatKey = (key: string) =>
+    key
+      .replace(/[_-]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+
+  const renderJSON = (data: any, depth = 0): JSX.Element => {
+    if (data === null || data === undefined) {
+      return <span className="text-muted-foreground">N/A</span>;
+    }
+
+    // Primitive values
+    if (typeof data !== "object") {
+      return <span className="text-foreground">{String(data)}</span>;
+    }
+
+    // Arrays
+    if (Array.isArray(data)) {
+      if (data.length === 0) return <span className="text-muted-foreground">None</span>;
+      return (
+        <ul className="list-disc ml-5 space-y-1">
+          {data.map((item, idx) => (
+            <li key={idx} className="text-sm">
+              <div className="mt-1">{renderJSON(item, depth + 1)}</div>
+            </li>
+          ))}
+        </ul>
+      );
+    }
+
+    // Objects
+    const entries = Object.entries(data);
+    if (entries.length === 0) return <span className="text-muted-foreground">Empty</span>;
+
+    return (
+      <div className={depth > 0 ? "bg-background/50 p-3 rounded-lg border border-border/50" : "space-y-3"}>
+        {entries.map(([key, value]) => (
+          <div key={key} className="space-y-1">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">{formatKey(key)}</p>
+            <div>{renderJSON(value, depth + 1)}</div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -388,101 +436,31 @@ export default function Results() {
                   <h3 className="font-semibold text-lg text-foreground">AI Detailed Analysis</h3>
                   {(() => {
                     try {
-                      // Try to parse as JSON first
-                      const parsed = typeof verdict.ai_explanation === 'string' 
+                      const parsed = typeof verdict.ai_explanation === 'string'
                         ? JSON.parse(verdict.ai_explanation)
                         : verdict.ai_explanation;
-                      
-                      return (
-                        <div className="space-y-4">
-                          {parsed.summary && (
-                            <div>
-                              <h4 className="font-medium text-foreground mb-2">Summary</h4>
-                              <p className="text-sm text-muted-foreground leading-relaxed">
-                                {parsed.summary}
-                              </p>
-                            </div>
-                          )}
-                          
-                          {parsed.detailed_analysis && (
-                            <div>
-                              <h4 className="font-medium text-foreground mb-2">Detailed Analysis</h4>
-                              <p className="text-sm text-muted-foreground leading-relaxed">
-                                {parsed.detailed_analysis}
-                              </p>
-                            </div>
-                          )}
-                          
-                          {parsed.ingredients_breakdown && Array.isArray(parsed.ingredients_breakdown) && parsed.ingredients_breakdown.length > 0 && (
-                            <div>
-                              <h4 className="font-medium text-foreground mb-2">Ingredients Breakdown</h4>
-                              <div className="space-y-2">
-                                {parsed.ingredients_breakdown.map((item: any, idx: number) => (
-                                  <div key={idx} className="text-sm bg-background/50 p-3 rounded-lg border border-border/50">
-                                    <p className="font-medium text-foreground">{item.ingredient || item.name}</p>
-                                    <p className="text-muted-foreground mt-1">{item.analysis || item.status || item.note}</p>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          
-                          {parsed.concerns && (
-                            <div>
-                              <h4 className="font-medium text-foreground mb-2 flex items-center gap-2">
-                                <AlertTriangle className="h-4 w-4 text-amber-500" />
-                                Concerns
-                              </h4>
-                              <p className="text-sm text-muted-foreground leading-relaxed">
-                                {parsed.concerns}
-                              </p>
-                            </div>
-                          )}
-                          
-                          {parsed.recommendations && (
-                            <div>
-                              <h4 className="font-medium text-foreground mb-2">Recommendations</h4>
-                              <p className="text-sm text-muted-foreground leading-relaxed">
-                                {parsed.recommendations}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      );
+                      return renderJSON(parsed);
                     } catch {
                       // If JSON parsing fails, display as formatted text
                       return (
                         <div className="text-sm text-muted-foreground leading-relaxed">
-                          {verdict.ai_explanation.split('\n').map((line, idx) => {
-                            // Check if line is a heading (contains colon or is all caps)
-                            const isHeading = line.includes(':') && line.length < 50;
-                            if (isHeading) {
-                              const [heading, ...rest] = line.split(':');
-                              return (
-                                <div key={idx} className="mt-3 first:mt-0">
-                                  <h4 className="font-medium text-foreground mb-1">{heading}</h4>
-                                  {rest.length > 0 && (
-                                    <p className="text-muted-foreground">{rest.join(':').trim()}</p>
-                                  )}
-                                </div>
+                          {String(verdict.ai_explanation)
+                            .split('\n')
+                            .map((line, idx) => {
+                              if (line.trim().startsWith('-') || line.trim().startsWith('•')) {
+                                return (
+                                  <div key={idx} className="flex gap-2 ml-4 my-1">
+                                    <span className="text-primary">•</span>
+                                    <span>{line.replace(/^[-•]\s*/, '')}</span>
+                                  </div>
+                                );
+                              }
+                              return line.trim() ? (
+                                <p key={idx} className="mb-2">{line}</p>
+                              ) : (
+                                <div key={idx} className="h-2" />
                               );
-                            }
-                            // Check if line is a bullet point
-                            if (line.trim().startsWith('-') || line.trim().startsWith('•')) {
-                              return (
-                                <div key={idx} className="flex gap-2 ml-4 my-1">
-                                  <span className="text-primary">•</span>
-                                  <span>{line.replace(/^[-•]\s*/, '')}</span>
-                                </div>
-                              );
-                            }
-                            // Regular paragraph
-                            return line.trim() ? (
-                              <p key={idx} className="mb-2">{line}</p>
-                            ) : (
-                              <div key={idx} className="h-2" />
-                            );
-                          })}
+                            })}
                         </div>
                       );
                     }
