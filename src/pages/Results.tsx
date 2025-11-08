@@ -401,6 +401,36 @@ export default function Results() {
 
   return (
     <Layout>
+      <script type="application/ld+json">
+        {JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Product",
+          "name": product.name,
+          "brand": {
+            "@type": "Brand",
+            "name": product.brand
+          },
+          "image": product.imageUrl || "",
+          "gtin13": product.barcode,
+          "description": `${product.name} - Halal verification status: ${verdict.verdict}`,
+          "offers": {
+            "@type": "AggregateOffer",
+            "availability": "https://schema.org/InStock"
+          },
+          "additionalProperty": [
+            {
+              "@type": "PropertyValue",
+              "name": "Halal Status",
+              "value": verdict.verdict
+            },
+            {
+              "@type": "PropertyValue",
+              "name": "Confidence Score",
+              "value": verdict.confidence_score
+            }
+          ]
+        })}
+      </script>
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto space-y-6">
           <Button variant="ghost" onClick={() => navigate("/")} className="mb-4">

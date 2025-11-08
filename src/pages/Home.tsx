@@ -312,8 +312,14 @@ export default function Home() {
               {/* Barcode Scan */}
               <div className="space-y-3">
                 <label className="text-sm font-medium text-foreground">Scan Barcode</label>
-                <Button onClick={startScanner} disabled={isScanning || isFetching} className="w-full h-14 text-lg bg-primary hover:bg-primary-dark" size="lg">
-                  <Camera className="mr-2 h-5 w-5" />
+                <Button 
+                  onClick={startScanner} 
+                  disabled={isScanning || isFetching} 
+                  className="w-full h-14 text-lg bg-primary hover:bg-primary-dark" 
+                  size="lg"
+                  aria-label="Open camera to scan product barcode"
+                >
+                  <Camera className="mr-2 h-5 w-5" aria-hidden="true" />
                   {isScanning ? "Opening Camera..." : "Scan with Camera"}
                 </Button>
               </div>
@@ -329,11 +335,26 @@ export default function Home() {
 
               {/* Manual Barcode Entry */}
               <div className="space-y-3">
-                <label className="text-sm font-medium text-foreground">Enter Barcode Manually</label>
+                <label htmlFor="barcode-input" className="text-sm font-medium text-foreground">Enter Barcode Manually</label>
                 <div className="flex gap-2">
-                  <Input type="text" placeholder="e.g., 0123456789012" value={barcode} onChange={e => setBarcode(e.target.value)} onKeyDown={e => e.key === "Enter" && handleBarcodeSearch()} className="flex-1" disabled={isFetching} />
-                  <Button onClick={() => handleBarcodeSearch()} size="lg" disabled={isFetching}>
-                    {isFetching ? <Loader2 className="h-5 w-5 animate-spin" /> : <ScanBarcode className="h-5 w-5" />}
+                  <Input 
+                    id="barcode-input"
+                    type="text" 
+                    placeholder="e.g., 0123456789012" 
+                    value={barcode} 
+                    onChange={e => setBarcode(e.target.value)} 
+                    onKeyDown={e => e.key === "Enter" && handleBarcodeSearch()} 
+                    className="flex-1" 
+                    disabled={isFetching}
+                    aria-label="Product barcode number" 
+                  />
+                  <Button 
+                    onClick={() => handleBarcodeSearch()} 
+                    size="lg" 
+                    disabled={isFetching}
+                    aria-label="Search product by barcode"
+                  >
+                    {isFetching ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : <ScanBarcode className="h-5 w-5" aria-hidden="true" />}
                   </Button>
                 </div>
               </div>
@@ -349,11 +370,26 @@ export default function Home() {
 
               {/* Product Search */}
               <div className="space-y-3">
-                <label className="text-sm font-medium text-foreground">Search by Product Name</label>
+                <label htmlFor="product-search" className="text-sm font-medium text-foreground">Search by Product Name</label>
                 <div className="flex gap-2">
-                  <Input type="text" placeholder="e.g., Chicken Nuggets" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} onKeyDown={e => e.key === "Enter" && handleProductSearch()} className="flex-1" disabled={isFetching} />
-                  <Button onClick={handleProductSearch} size="lg" disabled={isFetching || isSearching}>
-                    {isSearching ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
+                  <Input 
+                    id="product-search"
+                    type="text" 
+                    placeholder="e.g., Chicken Nuggets" 
+                    value={searchQuery} 
+                    onChange={e => setSearchQuery(e.target.value)} 
+                    onKeyDown={e => e.key === "Enter" && handleProductSearch()} 
+                    className="flex-1" 
+                    disabled={isFetching}
+                    aria-label="Product name search" 
+                  />
+                  <Button 
+                    onClick={handleProductSearch} 
+                    size="lg" 
+                    disabled={isFetching || isSearching}
+                    aria-label="Search product by name"
+                  >
+                    {isSearching ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : <Search className="h-5 w-5" aria-hidden="true" />}
                   </Button>
                 </div>
               </div>
