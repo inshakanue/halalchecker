@@ -79,6 +79,20 @@ export default function Results() {
       if (existingVerdict) {
         setVerdict(existingVerdict as Verdict);
       } else {
+        // Check for halal certifications from external sources
+        const { data: certData } = await supabase.functions.invoke(
+          'check-halal-certifications',
+          {
+            body: {
+              productName: productData.name,
+              barcode: barcode,
+              brand: productData.brand,
+              labels: productData.labels
+            }
+          }
+        );
+
+        console.log('Certification check result:', certData);
         // Check if ingredients are available
         const hasIngredients = (productData.ingredientsList && productData.ingredientsList.length > 0) || 
                                (productData.ingredients && productData.ingredients.trim().length > 0);
@@ -132,16 +146,24 @@ export default function Results() {
           }
 
           const newVerdict = {
-            verdict: aiAnalysis?.verdict || 'unclear',
-            confidence_score: aiAnalysis?.confidence_score || 50,
-            analysis_notes: aiAnalysis?.analysis_notes || 'Automated analysis',
+            verdict: certData?.is_certified 
+              ? 'halal' 
+              : aiAnalysis?.verdict || 'unclear',
+            confidence_score: certData?.is_certified 
+              ? certData.confidence_score 
+              : aiAnalysis?.confidence_score || 50,
+            analysis_notes: certData?.is_certified
+              ? `Product is certified halal by ${certData.cert_body} in ${certData.cert_country || 'the region'}.`
+              : aiAnalysis?.analysis_notes || 'Automated analysis',
             flagged_ingredients: aiAnalysis?.flagged_ingredients || null,
-            is_certified: false,
-            cert_body: null,
-            cert_country: null,
-            cert_link: null,
-            analysis_method: aiAnalysis ? 'ai_analysis' : 'rules_engine',
-            external_source: 'open_food_facts',
+            is_certified: certData?.is_certified || false,
+            cert_body: certData?.cert_body || null,
+            cert_country: certData?.cert_country || null,
+            cert_link: certData?.cert_link || null,
+            analysis_method: certData?.is_certified 
+              ? 'certification_verified' 
+              : aiAnalysis ? 'ai_analysis' : 'rules_engine',
+            external_source: certData?.external_source || 'open_food_facts',
             ai_explanation: aiAnalysis?.ai_explanation || null
           };
 
