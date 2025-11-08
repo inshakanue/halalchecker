@@ -79,49 +79,80 @@ export default function Results() {
       if (existingVerdict) {
         setVerdict(existingVerdict as Verdict);
       } else {
-        // This shouldn't happen normally, but generate verdict as fallback
-        toast.info("Analyzing ingredients...");
-        
-        const { data: aiAnalysis, error: aiError } = await supabase.functions.invoke(
-          'analyze-ingredients-ai',
-          { 
-            body: { 
-              productName: productData.name,
-              ingredients: productData.ingredientsList.length > 0 
-                ? productData.ingredientsList 
-                : productData.ingredients,
-              brand: productData.brand,
-              region: productData.region,
-              labels: productData.labels
-            } 
+        // Check if ingredients are available
+        const hasIngredients = (productData.ingredientsList && productData.ingredientsList.length > 0) || 
+                               (productData.ingredients && productData.ingredients.trim().length > 0);
+
+        if (!hasIngredients) {
+          // No ingredients available - create unclear verdict
+          const newVerdict = {
+            verdict: 'unclear',
+            confidence_score: 0,
+            analysis_notes: 'Ingredients data not available in the Open Food Facts database. Please check the product packaging or contact the manufacturer for ingredient information.',
+            flagged_ingredients: null,
+            is_certified: false,
+            cert_body: null,
+            cert_country: null,
+            cert_link: null,
+            analysis_method: 'insufficient_data',
+            external_source: 'open_food_facts',
+            ai_explanation: null
+          };
+
+          setVerdict(newVerdict as Verdict);
+
+          // Save verdict to database
+          await supabase.from("verdicts").insert({
+            barcode,
+            ...newVerdict
+          });
+
+          toast.warning("Ingredients not available for this product");
+        } else {
+          // Ingredients available - proceed with analysis
+          toast.info("Analyzing ingredients...");
+          
+          const { data: aiAnalysis, error: aiError } = await supabase.functions.invoke(
+            'analyze-ingredients-ai',
+            { 
+              body: { 
+                productName: productData.name,
+                ingredients: productData.ingredientsList.length > 0 
+                  ? productData.ingredientsList 
+                  : productData.ingredients,
+                brand: productData.brand,
+                region: productData.region,
+                labels: productData.labels
+              } 
+            }
+          );
+
+          if (aiError) {
+            console.error('AI analysis error:', aiError);
           }
-        );
 
-        if (aiError) {
-          console.error('AI analysis error:', aiError);
+          const newVerdict = {
+            verdict: aiAnalysis?.verdict || 'unclear',
+            confidence_score: aiAnalysis?.confidence_score || 50,
+            analysis_notes: aiAnalysis?.analysis_notes || 'Automated analysis',
+            flagged_ingredients: aiAnalysis?.flagged_ingredients || null,
+            is_certified: false,
+            cert_body: null,
+            cert_country: null,
+            cert_link: null,
+            analysis_method: aiAnalysis ? 'ai_analysis' : 'rules_engine',
+            external_source: 'open_food_facts',
+            ai_explanation: aiAnalysis?.ai_explanation || null
+          };
+
+          setVerdict(newVerdict as Verdict);
+
+          // Save verdict to database
+          await supabase.from("verdicts").insert({
+            barcode,
+            ...newVerdict
+          });
         }
-
-        const newVerdict = {
-          verdict: aiAnalysis?.verdict || 'questionable',
-          confidence_score: aiAnalysis?.confidence_score || 50,
-          analysis_notes: aiAnalysis?.analysis_notes || 'Automated analysis',
-          flagged_ingredients: aiAnalysis?.flagged_ingredients || null,
-          is_certified: false,
-          cert_body: null,
-          cert_country: null,
-          cert_link: null,
-          analysis_method: aiAnalysis ? 'ai_analysis' : 'rules_engine',
-          external_source: 'open_food_facts',
-          ai_explanation: aiAnalysis?.ai_explanation || null
-        };
-
-        setVerdict(newVerdict as Verdict);
-
-        // Save verdict to database
-        await supabase.from("verdicts").insert({
-          barcode,
-          ...newVerdict
-        });
       }
     } catch (error) {
       console.error("Error:", error);
