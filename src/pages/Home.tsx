@@ -1,3 +1,30 @@
+/**
+ * HOME PAGE - MAIN PRODUCT SEARCH AND SCAN INTERFACE
+ * 
+ * Business Purpose:
+ * - Primary entry point for users to search and verify products
+ * - Allows three methods: barcode scanning, manual entry, and product name search
+ * - Fetches product data from Open Food Facts (1.7M+ products)
+ * - Analyzes products with AI for halal compliance
+ * 
+ * User Workflow:
+ * 1. Select region/country filters (optional)
+ * 2. Choose search method:
+ *    a) Scan barcode with camera
+ *    b) Enter barcode manually (13-digit code)
+ *    c) Search by product name
+ * 3. System fetches product from Open Food Facts
+ * 4. AI analyzes ingredients for halal compliance
+ * 5. User redirected to results page with verdict
+ * 
+ * Technical Features:
+ * - Html5Qrcode library for barcode scanning via device camera
+ * - Region/country filtering for localized product search
+ * - Product name search with results modal
+ * - Caches analyzed products in database to avoid re-analysis
+ * - Edge Functions for data fetching and AI analysis
+ */
+
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,28 +37,37 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Html5Qrcode } from "html5-qrcode";
+
+// Product search result interface
 interface SearchResult {
   barcode: string;
   name: string;
   brand: string;
   imageUrl: string | null;
-  hasIngredients: boolean;
+  hasIngredients: boolean; // Whether product has ingredient data available
 }
+
 export default function Home() {
   const navigate = useNavigate();
+  
+  // State for barcode input and search
   const [barcode, setBarcode] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRegion, setSelectedRegion] = useState("");
   const [selectedCountry, setSelectedCountry] = useState("");
+  
+  // State for scanner and dialogs
   const [isScanning, setIsScanning] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [scannerDialog, setScannerDialog] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchResultsDialog, setSearchResultsDialog] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  
+  // Reference to Html5Qrcode scanner instance
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
 
-  // Cleanup scanner on unmount
+  // Cleanup: Stop scanner when component unmounts to free camera resources
   useEffect(() => {
     return () => {
       if (html5QrCodeRef.current) {
@@ -39,16 +75,33 @@ export default function Home() {
       }
     };
   }, []);
+
+  /**
+   * HANDLE BARCODE SEARCH
+   * 
+   * Flow:
+   * 1. Fetch product data from Open Food Facts via Edge Function
+   * 2. Check if product already has a verdict in database
+   * 3. If no verdict exists:
+   *    a) Analyze ingredients with AI Edge Function
+   *    b) Save verdict to database
+   *    c) Cache product data for future lookups
+   * 4. Navigate to results page
+   */
   const handleBarcodeSearch = async (barcodeValue?: string) => {
     const searchBarcode = barcodeValue || barcode.trim();
+    
     if (!searchBarcode) {
       toast.error("Please enter a barcode");
       return;
     }
+
     setIsFetching(true);
+    
     try {
-      // Step 1: Fetch from Open Food Facts
+      // Step 1: Fetch product from Open Food Facts global database
       toast.info("Searching global product database...");
+      
       const {
         data: externalProduct,
         error: fetchError
@@ -57,39 +110,46 @@ export default function Home() {
           barcode: searchBarcode
         }
       });
+
       if (fetchError) {
         throw fetchError;
       }
+
       if (!externalProduct.found) {
         toast.error("Product not found. Try a different barcode.");
         setIsFetching(false);
         return;
       }
 
-      // Step 2: Check if we already have a verdict for this barcode
+      // Step 2: Check if verdict already exists in database (avoid re-analysis)
       const {
         data: existingVerdict
       } = await supabase.from("verdicts").select("*").eq("barcode", searchBarcode).maybeSingle();
+      
       if (!existingVerdict) {
-        // Step 3: Analyze with Lovable AI
+        // Step 3: Analyze with AI since no verdict exists
         toast.info("Analyzing ingredients with AI...");
+        
         const {
           data: aiAnalysis,
           error: aiError
         } = await supabase.functions.invoke('analyze-ingredients-ai', {
           body: {
             productName: externalProduct.name,
-            ingredients: externalProduct.ingredientsList.length > 0 ? externalProduct.ingredientsList : externalProduct.ingredients,
+            ingredients: externalProduct.ingredientsList.length > 0 
+              ? externalProduct.ingredientsList 
+              : externalProduct.ingredients,
             brand: externalProduct.brand,
             region: externalProduct.region
           }
         });
+
         if (aiError) {
           console.error('AI analysis error:', aiError);
           toast.warning("Product found but AI analysis failed. Using basic analysis.");
         }
 
-        // Step 4: Save verdict with AI analysis
+        // Step 4: Save verdict to database
         await supabase.from("verdicts").insert({
           barcode: searchBarcode,
           verdict: aiAnalysis?.verdict || 'questionable',
@@ -101,7 +161,7 @@ export default function Home() {
           ai_explanation: aiAnalysis?.ai_explanation || null
         });
 
-        // Step 5: Save to cache
+        // Step 5: Cache product data for faster future lookups
         try {
           await supabase.from("product_cache").insert({
             barcode: externalProduct.barcode,
@@ -109,11 +169,14 @@ export default function Home() {
             source: 'open_food_facts'
           });
         } catch (cacheError) {
-          // Ignore cache errors (non-critical)
+          // Non-critical error - product can still be analyzed without cache
           console.log('Cache insert failed (non-critical)', cacheError);
         }
+        
         toast.success("Product analyzed!");
       }
+      
+      // Navigate to results page
       navigate(`/results/${searchBarcode}`);
     } catch (error) {
       console.error("Search error:", error);
@@ -122,15 +185,29 @@ export default function Home() {
       setIsFetching(false);
     }
   };
+
+  /**
+   * HANDLE PRODUCT NAME SEARCH
+   * 
+   * Flow:
+   * 1. Search Open Food Facts by product name and region
+   * 2. Display search results in modal dialog
+   * 3. User selects a product from results
+   * 4. Proceed with barcode search for selected product
+   */
   const handleProductSearch = async () => {
     const query = searchQuery.trim();
+    
     if (!query) {
       toast.error("Please enter a product name");
       return;
     }
+
     setIsSearching(true);
+    
     try {
       toast.info("Searching products...");
+      
       // Use country if selected, otherwise use region, default to 'world'
       const searchRegion = selectedCountry || selectedRegion || 'world';
       
@@ -143,14 +220,18 @@ export default function Home() {
           region: searchRegion.toLowerCase()
         }
       });
+
       if (error) {
         throw error;
       }
+
       if (!data.products || data.products.length === 0) {
         toast.error("No products found. Try a different search term.");
         setIsSearching(false);
         return;
       }
+
+      // Display results in modal for user selection
       setSearchResults(data.products);
       setSearchResultsDialog(true);
       toast.success(`Found ${data.products.length} products`);
@@ -161,41 +242,65 @@ export default function Home() {
       setIsSearching(false);
     }
   };
+
+  /**
+   * USER SELECTS PRODUCT FROM SEARCH RESULTS
+   * 
+   * Closes the search modal and proceeds with barcode analysis
+   */
   const handleSelectProduct = async (selectedBarcode: string) => {
     setSearchResultsDialog(false);
     setSearchResults([]);
     setSearchQuery("");
     await handleBarcodeSearch(selectedBarcode);
   };
+
+  /**
+   * START CAMERA BARCODE SCANNER
+   * 
+   * Flow:
+   * 1. Initialize Html5Qrcode with device camera
+   * 2. Configure scanner with 10 FPS and 250x250 scan box
+   * 3. On successful scan, stop camera and analyze product
+   * 4. Handle camera permission errors
+   */
   const startScanner = async () => {
     setIsScanning(true);
     setScannerDialog(true);
+    
     try {
       html5QrCodeRef.current = new Html5Qrcode("reader");
-      await html5QrCodeRef.current.start({
-        facingMode: "environment"
-      }, {
-        fps: 10,
-        qrbox: {
-          width: 250,
-          height: 250
-        }
-      }, async decodedText => {
-        // Stop scanning
-        if (html5QrCodeRef.current) {
-          await html5QrCodeRef.current.stop();
-          html5QrCodeRef.current = null;
-        }
-        setScannerDialog(false);
-        setIsScanning(false);
+      
+      await html5QrCodeRef.current.start(
+        { facingMode: "environment" }, // Use back camera on mobile
+        {
+          fps: 10,                      // Scan 10 frames per second
+          qrbox: {                      // Visible scan box dimensions
+            width: 250,
+            height: 250
+          }
+        },
+        async decodedText => {
+          // Successfully scanned barcode
+          
+          // Stop camera
+          if (html5QrCodeRef.current) {
+            await html5QrCodeRef.current.stop();
+            html5QrCodeRef.current = null;
+          }
+          
+          setScannerDialog(false);
+          setIsScanning(false);
 
-        // Search with scanned barcode
-        toast.success("Barcode scanned!");
-        setBarcode(decodedText);
-        await handleBarcodeSearch(decodedText);
-      }, errorMessage => {
-        // Ignore errors during scanning
-      });
+          // Analyze scanned product
+          toast.success("Barcode scanned!");
+          setBarcode(decodedText);
+          await handleBarcodeSearch(decodedText);
+        },
+        errorMessage => {
+          // Ignore continuous scanning errors (expected when no barcode in view)
+        }
+      );
     } catch (error) {
       console.error("Scanner error:", error);
       toast.error("Failed to start camera. Please check permissions.");
@@ -204,6 +309,12 @@ export default function Home() {
       html5QrCodeRef.current = null;
     }
   };
+
+  /**
+   * STOP CAMERA BARCODE SCANNER
+   * 
+   * Releases camera resources and closes scanner dialog
+   */
   const stopScanner = async () => {
     try {
       if (html5QrCodeRef.current) {
@@ -213,12 +324,14 @@ export default function Home() {
     } catch (error) {
       console.error("Error stopping scanner:", error);
     }
+    
     setScannerDialog(false);
     setIsScanning(false);
   };
+
   return <Layout>
       <div className="relative overflow-hidden">
-        {/* Hero Section */}
+        {/* Hero Section - Islamic green gradient with pattern overlay */}
         <div className="relative bg-gradient-to-br from-primary via-primary-light to-primary-dark text-primary-foreground">
           <div className="absolute inset-0 opacity-10" style={{
           backgroundImage: "var(--pattern-overlay)"
@@ -236,11 +349,11 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Search Section */}
+        {/* Main Search Card - Overlaps hero section for visual depth */}
         <div className="container mx-auto px-4 -mt-8 relative z-10 pb-16">
           <Card className="max-w-2xl mx-auto p-6 md:p-8 shadow-2xl border-2">
             <div className="space-y-6">
-              {/* Region and Country Selectors */}
+              {/* Region and Country Filter Selectors */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-foreground">Region</label>
@@ -268,6 +381,7 @@ export default function Home() {
                       <SelectValue placeholder="Select country" />
                     </SelectTrigger>
                     <SelectContent className="max-h-[300px]">
+                      {/* Popular Muslim-majority countries listed first */}
                       <SelectItem value="us">United States</SelectItem>
                       <SelectItem value="uk">United Kingdom</SelectItem>
                       <SelectItem value="ca">Canada</SelectItem>
@@ -309,7 +423,7 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Barcode Scan */}
+              {/* Camera Barcode Scanner Button */}
               <div className="space-y-3">
                 <label className="text-sm font-medium text-foreground">Scan Barcode</label>
                 <Button 
@@ -324,6 +438,7 @@ export default function Home() {
                 </Button>
               </div>
 
+              {/* Visual divider */}
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <span className="w-full border-t border-border" />
@@ -359,6 +474,7 @@ export default function Home() {
                 </div>
               </div>
 
+              {/* Visual divider */}
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <span className="w-full border-t border-border" />
@@ -368,7 +484,7 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Product Search */}
+              {/* Product Name Search */}
               <div className="space-y-3">
                 <label htmlFor="product-search" className="text-sm font-medium text-foreground">Search by Product Name</label>
                 <div className="flex gap-2">
@@ -394,6 +510,7 @@ export default function Home() {
                 </div>
               </div>
 
+              {/* Loading indicator while fetching/analyzing */}
               {isFetching && <div className="text-center py-4">
                   <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
                   <p className="text-sm text-muted-foreground mt-2">Searching and analyzing product...</p>
@@ -401,7 +518,7 @@ export default function Home() {
             </div>
           </Card>
 
-          {/* Feature Cards */}
+          {/* Feature Highlight Cards */}
           <div className="max-w-5xl mx-auto mt-16 grid md:grid-cols-3 gap-6">
             <Card className="p-6 text-center space-y-3 border-primary/20 hover:border-primary/40 transition-colors">
               <div className="w-12 h-12 bg-halal-bg rounded-full flex items-center justify-center mx-auto">
@@ -430,13 +547,14 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Scanner Dialog */}
+      {/* Scanner Dialog Modal - Shows camera feed for barcode scanning */}
       <Dialog open={scannerDialog} onOpenChange={open => !open && stopScanner()}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Scan Barcode</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Camera feed container (Html5Qrcode renders here) */}
             <div id="reader" className="w-full"></div>
             <p className="text-sm text-muted-foreground text-center">
               Point your camera at the product barcode
@@ -448,24 +566,36 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
-      {/* Search Results Dialog */}
+      {/* Search Results Dialog - Shows products matching name search */}
       <Dialog open={searchResultsDialog} onOpenChange={setSearchResultsDialog}>
         <DialogContent className="sm:max-w-2xl max-h-[80vh]">
           <DialogHeader>
             <DialogTitle>Search Results</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 overflow-y-auto max-h-[60vh]">
-            {searchResults.map(product => <Card key={product.barcode} className="p-4 hover:border-primary/50 transition-colors cursor-pointer" onClick={() => handleSelectProduct(product.barcode)}>
+            {searchResults.map(product => <Card 
+              key={product.barcode} 
+              className="p-4 hover:border-primary/50 transition-colors cursor-pointer" 
+              onClick={() => handleSelectProduct(product.barcode)}
+            >
                 <div className="flex gap-4">
-                  {product.imageUrl ? <img src={product.imageUrl} alt={product.name} className="w-20 h-20 object-contain rounded border border-border" /> : <div className="w-20 h-20 bg-muted rounded border border-border flex items-center justify-center">
+                  {/* Product image or placeholder */}
+                  {product.imageUrl ? 
+                    <img src={product.imageUrl} alt={product.name} className="w-20 h-20 object-contain rounded border border-border" /> 
+                    : 
+                    <div className="w-20 h-20 bg-muted rounded border border-border flex items-center justify-center">
                       <ShoppingCart className="h-8 w-8 text-muted-foreground" />
-                    </div>}
+                    </div>
+                  }
+                  
+                  {/* Product details */}
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-foreground truncate">{product.name}</h3>
                     <p className="text-sm text-muted-foreground">{product.brand}</p>
                     <p className="text-xs text-muted-foreground mt-1">Barcode: {product.barcode}</p>
                     {!product.hasIngredients && <p className="text-xs text-warning mt-1">⚠️ Limited ingredient data</p>}
                   </div>
+                  
                   <Button size="sm" variant="outline">
                     Select
                   </Button>
