@@ -24,8 +24,8 @@ export default function About() {
                   <h2 className="text-xl font-semibold mb-2 text-foreground">Our Mission</h2>
                   <p className="text-muted-foreground">
                     HalalChecker empowers Muslim consumers to make informed dietary decisions with confidence.
-                    We combine multiple verification methods—official certification databases, AI-powered ingredient 
-                    analysis, and crowdsourced reporting—to provide comprehensive halal status assessments for food products worldwide.
+                    We combine multiple verification methods—official certification databases and AI-powered ingredient 
+                    analysis—to provide comprehensive halal status assessments for food products worldwide.
                   </p>
                 </div>
               </div>
@@ -99,13 +99,12 @@ export default function About() {
                   <Users className="h-6 w-6 text-unclear" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-semibold mb-2 text-foreground">Community Driven</h2>
+                  <h2 className="text-xl font-semibold mb-2 text-foreground">Data Sources</h2>
                   <p className="text-muted-foreground">
-                    Help us improve! Found incorrect information or have concerns about a product analysis?
-                    Use our built-in report feature to flag issues, upload photos of ingredient labels, 
-                    and provide additional context. Every report helps make HalalChecker more accurate and
-                    reliable for the entire Muslim community. Reports are reviewed by our team and used to 
-                    update product information and improve our AI models.
+                    HalalChecker integrates with Open Food Facts, the world's largest open database of food products
+                    with over 1.7 million products worldwide. Product information is verified against multiple official
+                    halal certification databases to ensure accuracy. Our AI analysis is powered by advanced language models
+                    trained to understand Islamic dietary guidelines and ingredient composition.
                   </p>
                 </div>
               </div>
@@ -115,19 +114,19 @@ export default function About() {
                   <Camera className="h-6 w-6 text-primary" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-semibold mb-2 text-foreground">Features</h2>
+                  <h2 className="text-xl font-semibold mb-2 text-foreground">Key Features</h2>
                   <ul className="list-disc list-inside space-y-1 ml-4 text-muted-foreground">
-                    <li>Real-time barcode scanning with device camera</li>
-                    <li>Manual barcode entry support</li>
-                    <li>Product name search with region and country filtering</li>
-                    <li>Multiple AI models for ingredient analysis</li>
-                    <li>Official certification database cross-referencing</li>
-                    <li>Detailed AI explanations and reasoning</li>
-                    <li>Confidence scoring for transparency</li>
-                    <li>Flagged ingredient highlighting</li>
-                    <li>Direct links to product information on Open Food Facts</li>
-                    <li>Photo upload and reporting system</li>
-                    <li>Database check transparency with response times</li>
+                    <li><strong>Real-time Barcode Scanning:</strong> Use your device camera to scan product barcodes instantly</li>
+                    <li><strong>Manual Entry:</strong> Enter 13-digit EAN/UPC barcodes directly when scanning isn't available</li>
+                    <li><strong>Smart Search:</strong> Find products by name with optional region and country filtering</li>
+                    <li><strong>AI Analysis:</strong> Advanced AI models trained on Islamic dietary guidelines analyze ingredients</li>
+                    <li><strong>Certification Verification:</strong> Automatic cross-referencing with official halal certification databases</li>
+                    <li><strong>Transparent Results:</strong> View which certification databases were checked and their response times</li>
+                    <li><strong>Detailed Explanations:</strong> AI provides reasoning for each verdict with specific ingredient concerns</li>
+                    <li><strong>Confidence Scores:</strong> 0-100% reliability ratings for every analysis</li>
+                    <li><strong>Flagged Ingredients:</strong> Problematic ingredients highlighted for easy identification</li>
+                    <li><strong>Open Food Facts Integration:</strong> Access to 1.7M+ products with direct source links</li>
+                    <li><strong>Cached Results:</strong> Fast loading for previously analyzed products</li>
                   </ul>
                 </div>
               </div>
@@ -195,14 +194,23 @@ export default function About() {
           </Card>
 
           <Card className="p-8 bg-primary/5 border-primary/20">
-            <h2 className="text-xl font-semibold mb-4 text-foreground">Contact & Support</h2>
-            <div className="space-y-2 text-muted-foreground">
-              <p>Have questions or suggestions? We'd love to hear from you:</p>
-              <ul className="space-y-1">
-                <li>• Report issues through the app's report feature</li>
-                <li>• Request human review for uncertain products</li>
-                <li>• Contribute to our community-driven database</li>
+            <h2 className="text-xl font-semibold mb-4 text-foreground">Technology Stack</h2>
+            <div className="space-y-3 text-muted-foreground">
+              <p>
+                HalalChecker is built with modern web technologies to provide a fast, reliable, and accessible experience:
+              </p>
+              <ul className="list-disc list-inside space-y-1 ml-4">
+                <li><strong>Frontend:</strong> React with TypeScript for type-safe, component-based architecture</li>
+                <li><strong>Backend:</strong> Lovable Cloud with Supabase for scalable database and serverless functions</li>
+                <li><strong>AI Models:</strong> Integration with Google Gemini and OpenAI models via Lovable AI</li>
+                <li><strong>Product Data:</strong> Open Food Facts API for global product information</li>
+                <li><strong>Barcode Scanner:</strong> HTML5 QR Code library for device camera access</li>
+                <li><strong>UI Components:</strong> Shadcn/UI with Tailwind CSS for beautiful, accessible interfaces</li>
               </ul>
+              <p className="pt-2">
+                Our serverless architecture ensures fast response times and can scale automatically to serve
+                the global Muslim community without compromising on performance or reliability.
+              </p>
             </div>
           </Card>
         </div>
