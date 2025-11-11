@@ -77,39 +77,6 @@ export type Database = {
         }
         Relationships: []
       }
-      reports: {
-        Row: {
-          barcode: string | null
-          comment: string | null
-          created_at: string | null
-          id: string
-          photo_url: string | null
-          status: string
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          barcode?: string | null
-          comment?: string | null
-          created_at?: string | null
-          id?: string
-          photo_url?: string | null
-          status?: string
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          barcode?: string | null
-          comment?: string | null
-          created_at?: string | null
-          id?: string
-          photo_url?: string | null
-          status?: string
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
       user_roles: {
         Row: {
           created_at: string | null

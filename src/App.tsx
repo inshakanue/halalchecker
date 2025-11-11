@@ -3,24 +3,22 @@
  * 
  * Business Purpose:
  * - Main application container that configures the HalalChecker app structure
- * - Sets up routing for different pages (Home, Results, About, Report)
+ * - Sets up routing for different pages (Home, Results, About)
  * - Provides global functionality like notifications and tooltips
  * 
  * Technical Details:
  * - QueryClient: Manages server state and API caching for product data
  * - BrowserRouter: Enables client-side routing without page reloads
- * - Toaster/Sonner: Provides toast notifications for user feedback
+ * - Sonner: Provides toast notifications for user feedback
  * - TooltipProvider: Enables tooltips throughout the app
  * 
  * Routes:
  * - / : Home page with barcode scanner and search
  * - /results/:barcode : Shows halal verification results for a product
- * - /report/:barcode : Allows users to report issues with product data
  * - /about : Information about HalalChecker and how it works
  * - * : 404 page for invalid routes
  */
 
-import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -36,8 +34,7 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      {/* Dual toast notification systems for different use cases */}
-      <Toaster />
+      {/* Toast notification system for user feedback */}
       <Sonner />
       <BrowserRouter>
         <Routes>
