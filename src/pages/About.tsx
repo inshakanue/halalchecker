@@ -193,26 +193,6 @@ export default function About() {
             </div>
           </Card>
 
-          <Card className="p-8 bg-primary/5 border-primary/20">
-            <h2 className="text-xl font-semibold mb-4 text-foreground">Technology Stack</h2>
-            <div className="space-y-3 text-muted-foreground">
-              <p>
-                HalalChecker is built with modern web technologies to provide a fast, reliable, and accessible experience:
-              </p>
-              <ul className="list-disc list-inside space-y-1 ml-4">
-                <li><strong>Frontend:</strong> React with TypeScript for type-safe, component-based architecture</li>
-                <li><strong>Backend:</strong> Lovable Cloud with Supabase for scalable database and serverless functions</li>
-                <li><strong>AI Models:</strong> Integration with Google Gemini and OpenAI models via Lovable AI</li>
-                <li><strong>Product Data:</strong> Open Food Facts API for global product information</li>
-                <li><strong>Barcode Scanner:</strong> HTML5 QR Code library for device camera access</li>
-                <li><strong>UI Components:</strong> Shadcn/UI with Tailwind CSS for beautiful, accessible interfaces</li>
-              </ul>
-              <p className="pt-2">
-                Our serverless architecture ensures fast response times and can scale automatically to serve
-                the global Muslim community without compromising on performance or reliability.
-              </p>
-            </div>
-          </Card>
         </div>
       </div>
     </Layout>
