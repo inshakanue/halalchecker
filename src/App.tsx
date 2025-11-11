@@ -27,7 +27,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Home from "./pages/Home";
 import Results from "./pages/Results";
-import Report from "./pages/Report";
 import About from "./pages/About";
 import NotFound from "./pages/NotFound";
 
@@ -47,9 +46,6 @@ const App = () => (
           
           {/* Product verification results page */}
           <Route path="/results/:barcode" element={<Results />} />
-          
-          {/* Report incorrect product information */}
-          <Route path="/report/:barcode" element={<Report />} />
           
           {/* About HalalChecker information */}
           <Route path="/about" element={<About />} />

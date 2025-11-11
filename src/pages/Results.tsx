@@ -2,11 +2,11 @@ import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, AlertTriangle, CheckCircle2, HelpCircle, Flag, ExternalLink, Sparkles, Activity, ChevronDown } from "lucide-react";
+import { ArrowLeft, AlertTriangle, CheckCircle2, HelpCircle, ExternalLink, Sparkles, Activity, ChevronDown } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface Product {
@@ -598,20 +598,6 @@ export default function Results() {
             </div>
           </Card>
 
-          {/* Actions */}
-          <Card className="p-6">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Link to={`/report/${product.barcode}`} className="flex-1">
-                <Button variant="outline" className="w-full">
-                  <Flag className="mr-2 h-4 w-4" />
-                  Report Issue
-                </Button>
-              </Link>
-              <Button className="flex-1 bg-primary hover:bg-primary-dark">
-                Request Human Review
-              </Button>
-            </div>
-          </Card>
 
           {/* Certification Check Details */}
           {verdict.check_details && verdict.check_details.length > 0 && (
