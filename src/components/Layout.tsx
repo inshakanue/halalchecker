@@ -16,7 +16,7 @@
 
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ShieldCheck } from "lucide-react";
+import logo from "@/assets/halal-checker-logo.png";
 
 interface LayoutProps {
   children: React.ReactNode; // Page content to be wrapped
@@ -31,9 +31,9 @@ export function Layout({
         <div className="container mx-auto px-4 py-4">
           <nav role="navigation" aria-label="Main navigation" className="flex items-center justify-between">
             {/* HalalChecker logo and brand */}
-            <Link to="/" className="flex items-center gap-2 font-bold text-xl text-primary" aria-label="HalalChecker Home">
-              <ShieldCheck className="h-6 w-6" aria-hidden="true" />
-              <span className="hidden sm:inline">HalalChecker</span>
+            <Link to="/" className="flex items-center gap-2" aria-label="HalalChecker Home">
+              <img src={logo} alt="HalalChecker Logo" className="h-10 w-10" />
+              <span className="hidden sm:inline font-bold text-xl text-primary">HalalChecker</span>
             </Link>
             
             {/* Navigation links */}
