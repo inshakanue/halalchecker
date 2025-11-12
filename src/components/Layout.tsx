@@ -16,7 +16,7 @@
 
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import logo from "@/assets/halal-checker-logo.png";
+import logo from "@/assets/halalcheckerlogo.png";
 
 interface LayoutProps {
   children: React.ReactNode; // Page content to be wrapped
