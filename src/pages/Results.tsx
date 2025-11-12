@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ArrowLeft, AlertTriangle, CheckCircle2, HelpCircle, ExternalLink, Sparkles, Activity, ChevronDown } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { LogoSpinner } from "@/components/LogoSpinner";
 
 interface Product {
   barcode: string;
@@ -368,8 +369,8 @@ export default function Results() {
     return (
       <Layout>
         <div className="container mx-auto px-4 py-16">
-          <div className="max-w-4xl mx-auto text-center">
-            <p className="text-lg text-muted-foreground">Loading product details...</p>
+          <div className="max-w-4xl mx-auto">
+            <LogoSpinner message="Analyzing product..." size="lg" />
           </div>
         </div>
       </Layout>

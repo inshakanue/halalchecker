@@ -31,12 +31,13 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Camera, Search, ScanBarcode, Loader2, ShoppingCart } from "lucide-react";
+import { Camera, Search, ScanBarcode, ShoppingCart } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Html5Qrcode } from "html5-qrcode";
+import { LogoSpinner } from "@/components/LogoSpinner";
 
 // Product search result interface
 interface SearchResult {
@@ -469,7 +470,7 @@ export default function Home() {
                     disabled={isFetching}
                     aria-label="Search product by barcode"
                   >
-                    {isFetching ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : <ScanBarcode className="h-5 w-5" aria-hidden="true" />}
+                    <ScanBarcode className="h-5 w-5" aria-hidden="true" />
                   </Button>
                 </div>
               </div>
@@ -505,16 +506,15 @@ export default function Home() {
                     disabled={isFetching || isSearching}
                     aria-label="Search product by name"
                   >
-                    {isSearching ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : <Search className="h-5 w-5" aria-hidden="true" />}
+                    <Search className="h-5 w-5" aria-hidden="true" />
                   </Button>
                 </div>
               </div>
 
               {/* Loading indicator while fetching/analyzing */}
-              {isFetching && <div className="text-center py-4">
-                  <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-                  <p className="text-sm text-muted-foreground mt-2">Searching and analyzing product...</p>
-                </div>}
+              {isFetching && (
+                <LogoSpinner message="Searching and analyzing product..." size="md" />
+              )}
             </div>
           </Card>
 
