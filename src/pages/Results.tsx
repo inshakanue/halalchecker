@@ -126,11 +126,8 @@ export default function Results() {
 
           setVerdict(newVerdict as Verdict);
 
-          // Save verdict to database
-          await supabase.from("verdicts").insert({
-            barcode,
-            ...newVerdict
-          });
+          // Verdict is now stored by the edge function automatically
+          // No client-side database writes needed
 
           toast.warning("Ingredients not available for this product");
         } else {
@@ -181,11 +178,8 @@ export default function Results() {
 
           setVerdict(newVerdict as Verdict);
 
-          // Save verdict to database
-          await supabase.from("verdicts").insert({
-            barcode,
-            ...newVerdict
-          });
+          // Verdict is now stored by the edge function automatically
+          // No client-side database writes needed
         }
       }
     } catch (error) {

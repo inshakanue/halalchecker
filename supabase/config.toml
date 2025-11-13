@@ -1,10 +1,10 @@
 project_id = "leuuipzutbpdxyxzpzfx"
 
 [functions.fetch-product-data]
-verify_jwt = true
+verify_jwt = false
 
 [functions.analyze-ingredients-ai]
-verify_jwt = true
+verify_jwt = false
 
 [functions.search-products-by-name]
-verify_jwt = true
+verify_jwt = false

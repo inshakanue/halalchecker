@@ -150,29 +150,8 @@ export default function Home() {
           toast.warning("Product found but AI analysis failed. Using basic analysis.");
         }
 
-        // Step 4: Save verdict to database
-        await supabase.from("verdicts").insert({
-          barcode: searchBarcode,
-          verdict: aiAnalysis?.verdict || 'questionable',
-          confidence_score: aiAnalysis?.confidence_score || 50,
-          analysis_notes: aiAnalysis?.analysis_notes || 'Automated analysis',
-          flagged_ingredients: aiAnalysis?.flagged_ingredients || null,
-          analysis_method: aiAnalysis ? 'ai_analysis' : 'rules_engine',
-          external_source: 'open_food_facts',
-          ai_explanation: aiAnalysis?.ai_explanation || null
-        });
-
-        // Step 5: Cache product data for faster future lookups
-        try {
-          await supabase.from("product_cache").insert({
-            barcode: externalProduct.barcode,
-            external_data: externalProduct.rawData,
-            source: 'open_food_facts'
-          });
-        } catch (cacheError) {
-          // Non-critical error - product can still be analyzed without cache
-          console.log('Cache insert failed (non-critical)', cacheError);
-        }
+        // Verdict is now stored by the edge function automatically
+        // No client-side database writes needed
         
         toast.success("Product analyzed!");
       }
