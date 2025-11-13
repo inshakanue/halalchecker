@@ -1,4 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { checkRateLimit, getClientIp } from '../_shared/rateLimit.ts';
+import { validate, barcodeSchema } from '../_shared/validation.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,14 +14,35 @@ serve(async (req) => {
   }
 
   try {
-    const { barcode } = await req.json();
-    
-    if (!barcode) {
+    // Rate limiting check
+    const clientIp = getClientIp(req);
+    const rateLimit = checkRateLimit(clientIp, 'fetch-product-data', {
+      maxRequests: 30,
+      windowMs: 60000 // 1 minute
+    });
+
+    if (!rateLimit.allowed) {
       return new Response(
-        JSON.stringify({ error: 'Barcode is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          error: 'Rate limit exceeded. Please try again later.',
+          resetAt: rateLimit.resetAt ? new Date(rateLimit.resetAt).toISOString() : undefined
+        }),
+        { 
+          status: 429,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+            'X-RateLimit-Remaining': '0',
+            ...(rateLimit.resetAt ? { 'X-RateLimit-Reset': String(rateLimit.resetAt) } : {})
+          }
+        }
       );
     }
+
+    // Input validation
+    const requestData = await req.json();
+    const validated = validate(requestData, barcodeSchema) as any;
+    const barcode = validated.barcode as string;
 
     console.log(`Fetching product data for barcode: ${barcode}`);
 
@@ -65,12 +89,53 @@ serve(async (req) => {
 
     console.log(`Successfully fetched product: ${productData.name}`);
 
+    // Store in cache using service role
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL');
+      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+      if (supabaseUrl && supabaseServiceKey) {
+        const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+          auth: { persistSession: false }
+        });
+
+        const { error: cacheError } = await supabase
+          .from('product_cache')
+          .upsert({
+            barcode,
+            external_data: product,
+            source: 'open_food_facts',
+            last_fetched_at: new Date().toISOString()
+          }, {
+            onConflict: 'barcode'
+          });
+
+        if (cacheError) {
+          console.error('Failed to cache product data:', cacheError);
+          // Continue anyway - caching failure shouldn't block user
+        } else {
+          console.log('Product data cached successfully');
+        }
+      }
+    } catch (cacheError) {
+      console.error('Cache operation failed:', cacheError);
+      // Continue anyway
+    }
+
     return new Response(
       JSON.stringify(productData),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
+    // Check if it's a validation error
+    if (error instanceof Error && error.message.includes('Validation error')) {
+      return new Response(
+        JSON.stringify({ error: error.message }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     console.error('Error in fetch-product-data function:', error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Internal server error', found: false }),

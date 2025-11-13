@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { checkRateLimit, getClientIp } from '../_shared/rateLimit.ts';
+import { validate, productNameSchema, regionSchema } from '../_shared/validation.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,14 +14,39 @@ serve(async (req) => {
   }
 
   try {
-    const { productName, region = 'world' } = await req.json();
+    // Rate limiting check
+    const clientIp = getClientIp(req);
+    const rateLimit = checkRateLimit(clientIp, 'search-products-by-name', {
+      maxRequests: 20,
+      windowMs: 60000 // 1 minute
+    });
 
-    if (!productName) {
+    if (!rateLimit.allowed) {
       return new Response(
-        JSON.stringify({ error: 'Product name is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          error: 'Rate limit exceeded. Please try again later.',
+          resetAt: rateLimit.resetAt ? new Date(rateLimit.resetAt).toISOString() : undefined
+        }),
+        { 
+          status: 429,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+            'X-RateLimit-Remaining': '0',
+            ...(rateLimit.resetAt ? { 'X-RateLimit-Reset': String(rateLimit.resetAt) } : {})
+          }
+        }
       );
     }
+
+    // Input validation
+    const requestData = await req.json();
+    const validated = validate(requestData, {
+      ...productNameSchema,
+      ...regionSchema
+    }) as any;
+    const productName = validated.productName as string;
+    const region = validated.region as string;
 
     console.log('Searching for product:', productName, 'in region:', region);
 
@@ -67,6 +94,14 @@ serve(async (req) => {
     );
 
   } catch (error) {
+    // Check if it's a validation error
+    if (error instanceof Error && error.message.includes('Validation error')) {
+      return new Response(
+        JSON.stringify({ error: error.message }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     console.error('Error in search-products-by-name:', error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),

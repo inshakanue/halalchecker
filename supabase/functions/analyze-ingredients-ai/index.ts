@@ -1,4 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { checkRateLimit, getClientIp } from '../_shared/rateLimit.ts';
+import { validate, ingredientsSchema, stringSchema, labelsSchema } from '../_shared/validation.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,14 +14,43 @@ serve(async (req) => {
   }
 
   try {
-    const { productName, ingredients, brand, region, labels } = await req.json();
-    
-    if (!ingredients || ingredients.length === 0) {
+    // Rate limiting check (stricter for AI endpoint)
+    const clientIp = getClientIp(req);
+    const rateLimit = checkRateLimit(clientIp, 'analyze-ingredients-ai', {
+      maxRequests: 10,
+      windowMs: 60000 // 1 minute
+    });
+
+    if (!rateLimit.allowed) {
       return new Response(
-        JSON.stringify({ error: 'Ingredients are required for analysis' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          error: 'Rate limit exceeded. AI analysis is limited to 10 requests per minute.',
+          resetAt: rateLimit.resetAt ? new Date(rateLimit.resetAt).toISOString() : undefined
+        }),
+        { 
+          status: 429,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+            'X-RateLimit-Remaining': '0',
+            ...(rateLimit.resetAt ? { 'X-RateLimit-Reset': String(rateLimit.resetAt) } : {})
+          }
+        }
       );
     }
+
+    // Input validation
+    const requestData = await req.json();
+    const validated = validate(requestData, {
+      ...ingredientsSchema,
+      ...stringSchema('productName', 200),
+      ...stringSchema('brand', 100),
+      ...stringSchema('region', 50),
+      ...stringSchema('barcode', 14),
+      ...labelsSchema
+    }) as any;
+    
+    const { productName, ingredients, brand, region, labels, barcode } = validated;
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -36,23 +68,28 @@ serve(async (req) => {
       
       if (isCertified) {
         console.log('Halal certification found in product labels');
+        const certifiedResponse = {
+          verdict: 'halal',
+          confidence_score: 95,
+          flagged_ingredients: [],
+          analysis_notes: 'This product has official halal certification as indicated by its labels.',
+          recommendations: 'Verify the certification body and validity date on the product packaging.',
+          ai_explanation: 'Halal certification detected in product labels from Open Food Facts database.',
+          analysis_method: 'certification_verified',
+          is_certified: true,
+          cert_body: 'Open Food Facts Database',
+          external_source: 'Open Food Facts',
+          verification_links: [
+            `https://verifyhalal.com/product-result.html?keyword=${productName}`,
+            'https://world.openfoodfacts.org/product/' + (brand || '').toLowerCase().replace(/\s+/g, '-')
+          ]
+        };
+
+        // Store verdict with service role
+        await storeVerdict(barcode || productName, brand, certifiedResponse);
+
         return new Response(
-          JSON.stringify({
-            verdict: 'halal',
-            confidence_score: 95,
-            flagged_ingredients: [],
-            analysis_notes: 'This product has official halal certification as indicated by its labels.',
-            recommendations: 'Verify the certification body and validity date on the product packaging.',
-            ai_explanation: 'Halal certification detected in product labels from Open Food Facts database.',
-            analysis_method: 'certification_verified',
-            is_certified: true,
-            cert_body: 'Open Food Facts Database',
-            external_source: 'Open Food Facts',
-            verification_links: [
-              `https://verifyhalal.com/product-result.html?keyword=${productName}`,
-              'https://world.openfoodfacts.org/product/' + (brand || '').toLowerCase().replace(/\s+/g, '-')
-            ]
-          }),
+          JSON.stringify(certifiedResponse),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -86,103 +123,62 @@ serve(async (req) => {
 3. **E-Numbers & Additives - Detailed Classification:**
 
    **HARAM E-Numbers (Animal/Insect Origin):**
-   - E120 (Carmine/Cochineal) - insect-derived red dye (haram per majority scholars)
-   - E441 (Gelatin) - typically from pork/non-zabihah animals unless certified halal
-   - E542 (Bone phosphate) - from animal bones
-   - E631, E627 (Disodium inosinate/guanylate) - often from non-halal meat
-   - E904 (Shellac) - insect secretion (debated, stricter view: haram)
-   - E1105 (Lysozyme) - often from eggs (halal) but can be from pork
+   - E120 (Carmine/Cochineal) - from insects - HARAM
+   - E441 (Gelatin) - often from pork - HARAM unless halal-certified beef/fish
+   - E422 (Glycerol/Glycerin) - can be animal-based - MASHBOOH (need source verification)
+   - E470-E495 (Fatty Acids, Mono/Diglycerides) - can be animal fat - MASHBOOH
+   - E542 (Bone Phosphate) - from animal bones - HARAM unless certified halal
+   - E631, E627 (Disodium Inosinate/Guanylate) - can be from pork - MASHBOOH
+   - E904 (Shellac) - from lac beetle - MASHBOOH/HARAM per some scholars
+   - E1105 (Lysozyme) - from egg whites (halal) or pork (haram) - MASHBOOH
 
-   **QUESTIONABLE E-Numbers (Could be Animal OR Plant):**
-   - E470-E472 (Fatty acid esters) - can be from animal fat or plant oils
-   - E471 (Mono/diglycerides) - MOST COMMON QUESTIONABLE - can be from pork fat, beef fat, or plant oils
-   - E481-E482 (Stearoyl lactylates) - can be from animal or plant
-   - E473-E477 (Emulsifiers) - source unclear without certification
-   - E432-E436 (Polysorbates) - fatty acid source unclear
-   - E479b (Thermally oxidized soy oil) - usually plant but verify
-   - E491-E495 (Sorbitan esters) - can be animal-derived
-   - E570 (Stearic acid) - can be from animal fat or plant
-   - E1518 (Glyceryl triacetate) - glycerin can be animal or plant
+   **ALCOHOL-BASED (Context-Dependent):**
+   - E1510 (Ethanol) - if used as solvent/preservative (<0.5%) may be acceptable; for intoxication is HARAM
+   - Vanilla extract (often contains alcohol) - scholars differ on permissibility
 
-   **ALCOHOL-CONTAINING (Requires Nuance):**
-   - E1510 (Ethanol) - if used as solvent in tiny amounts, lenient scholars allow; if for intoxication, haram
-   - Vanilla extract - typically contains alcohol; artificial vanilla (vanillin) is halal
+   **HALAL E-Numbers (Plant/Synthetic Origin):**
+   - E100-E199 (Colors like turmeric, beetroot) - mostly HALAL if plant-based
+   - E200-E299 (Preservatives like citric acid, ascorbic acid) - HALAL
+   - E300-E399 (Antioxidants) - mostly HALAL
+   - E400-E499 (Thickeners/Stabilizers like pectin, agar) - mostly HALAL if plant-based
 
-   **HALAL E-Numbers (Plant/Mineral/Synthetic):**
-   - E100-E163 (Most natural colors from plants/minerals)
-   - E200-E290 (Preservatives like sorbates, benzoates - synthetic/mineral)
-   - E300-E321 (Antioxidants like Vitamin C, E - synthetic/plant)
-   - E400-E418 (Vegetable gums - seaweed, plant extracts)
+**YOUR ANALYSIS FRAMEWORK:**
 
-4. **Enzymes & Processing Aids (Critical Gray Area):**
-   - **Rennet**: Traditionally from calf stomach (haram if not zabihah); microbial/vegetable rennet is halal
-   - **Pepsin**: From pig/cow stomach - usually haram unless certified halal
-   - **Lipase**: Can be from animal pancreas or microbial (verify source)
-   - **Protease, Amylase**: Usually microbial/plant (halal) but can be animal-derived
-   - **Lactase**: Usually microbial (halal)
-   - **Processing aids**: Often not listed but can include non-halal enzymes (e.g., in cheese, bread)
+Analyze the provided ingredients and return a JSON object with these fields:
 
-5. **Dairy & Animal Products:**
-   - **Cheese**: Questionable if contains animal rennet; check for "microbial enzymes" or halal certification
-   - **Whey**: If from cheese made with animal rennet, questionable
-   - **Whey protein**: Same concern as whey
-   - **Milk powder, butter**: Generally halal unless cross-contaminated
-   - **Lactose**: Halal (milk sugar)
-
-6. **Fats & Oils:**
-   - **Lard, tallow, suet**: Clearly haram (pork/non-zabihah animal fat)
-   - **Shortening**: Can be plant (halal) or animal (haram) - verify
-   - **Glycerin/Glycerol**: Can be from animal fat (haram) or plant oils (halal) - VERY COMMON, usually questionable
-   - **Mono/diglycerides**: See E471 above - MAJOR concern
-   - **Lecithin**: Usually from soy/sunflower (halal); can be from eggs (halal); rarely from animal fat
-
-7. **Flavorings & Extracts:**
-   - **Natural flavors**: Broad term; can include animal derivatives (e.g., castoreum from beavers - debated)
-   - **Artificial flavors**: Usually synthetic (halal) but verify no alcohol carrier
-   - **Vanilla extract**: Contains alcohol (questionable to haram); vanilla powder/vanillin is halal
-   - **Smoke flavor**: Usually plant-based (halal)
-
-8. **Regional & Madhab Considerations:**
-   - **Alcohol as solvent**: Hanafi scholars more lenient if not intoxicating amount; Shafi'i/Maliki stricter
-   - **Seafood**: All schools agree fish is halal; shellfish (shrimp, crab) is debated (Hanafi: only fish with scales; others: all seafood)
-   - **Stunning before slaughter**: Debated; some scholars allow if animal still alive before zabihah
-   - **Cross-contamination**: Stricter scholars avoid; lenient view allows if ingredient itself is halal
-
-**ANALYSIS FRAMEWORK:**
-
-For each ingredient:
-1. Identify if explicitly haram, questionable, or halal
-2. For questionable: explain why (animal/plant ambiguity, alcohol content, etc.)
-3. Assign confidence score based on certainty:
-   - 90-100: Certified halal OR clearly plant/mineral with no ambiguity
-   - 70-89: Likely halal but minor ambiguity (e.g., "natural flavors" in predominantly plant product)
-   - 40-69: Questionable ingredients present (e.g., E471, enzymes, glycerin without source)
-   - 20-39: Multiple questionable ingredients OR likely haram source
-   - 0-19: Clearly haram ingredients (pork, alcohol for intoxication, blood)
-
-**OUTPUT FORMAT (JSON only):**
 {
-  "verdict": "halal" | "not_halal" | "questionable",
-  "confidence_score": 0-100,
-  "flagged_ingredients": ["ingredient1", "ingredient2"],
-  "analysis_notes": "Detailed 2-4 sentence explanation of verdict with Islamic basis",
-  "recommendations": "Specific certification to look for, alternative products, or verification steps"
+  "verdict": "halal" | "haram" | "questionable",
+  "confidence_score": <number between 0-100>,
+  "flagged_ingredients": [<array of problematic ingredient names>],
+  "analysis_notes": "<detailed explanation citing Quranic verses, Hadith, or scholarly rulings>",
+  "recommendations": "<actionable advice for the consumer>"
 }
 
-**Regional context for this analysis**: ${region || 'global'}
+**DECISION RULES:**
+- If ANY ingredient is definitively haram (pork, alcohol for intoxication, blood, improper slaughter), verdict = "haram" (even if 1 ingredient)
+- If ingredients are all clearly halal with no doubts, verdict = "halal" with high confidence (90-100)
+- If ingredients contain mashbooh items (unknown animal sources, ambiguous E-numbers), verdict = "questionable" with moderate confidence (40-70)
+- For E-numbers, state the number, its common sources, and whether it's haram/halal/mashbooh
+- Cite specific Quranic verses (e.g., Quran 5:3) or Hadith (e.g., Sahih Bukhari 4219) when applicable
+- Consider both strictest (Hanafi) and most lenient (Maliki) madhab interpretations where relevant
 
-Be thorough, reference Islamic sources where relevant, and prioritize consumer safety in faith practice.`;
+**IMPORTANT:**
+- Be precise: Don't assume ingredients are haram without evidence
+- Distinguish between definitive rulings (nass) and scholarly opinions (ijtihad)
+- For dairy/meat products, assume proper slaughter unless labels state otherwise (give benefit of doubt)
+- If uncertain, err on "questionable" rather than "halal" or "haram"`;
 
     const userPrompt = `Product: ${productName || 'Unknown'}
 Brand: ${brand || 'Unknown'}
 Region: ${region || 'global'}
 
-Ingredients:
+**Ingredients to analyze:**
 ${ingredientsList}
 
-Analyze these ingredients for halal compliance and return JSON only.`;
+Provide a thorough halal analysis in JSON format. Be specific about E-numbers and cite Islamic sources.`;
 
-    // Call Lovable AI
+    console.log('Calling Lovable AI for ingredient analysis...');
+
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -190,92 +186,142 @@ Analyze these ingredients for halal compliance and return JSON only.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'openai/gpt-5-mini',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
         temperature: 0.3,
+        max_tokens: 1000,
       }),
     });
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error('Lovable AI error:', aiResponse.status, errorText);
+      console.error('Lovable AI API error:', aiResponse.status, errorText);
       
       if (aiResponse.status === 429) {
         return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
+          JSON.stringify({ error: 'AI service rate limit exceeded. Please try again in a moment.' }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
       if (aiResponse.status === 402) {
         return new Response(
-          JSON.stringify({ error: 'AI credits exhausted. Please add credits to continue.' }),
+          JSON.stringify({ error: 'AI service credits exhausted. Please contact support.' }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      throw new Error(`AI API error: ${aiResponse.status}`);
+      throw new Error(`AI API error: ${aiResponse.status} ${errorText}`);
     }
 
     const aiData = await aiResponse.json();
     const aiContent = aiData.choices?.[0]?.message?.content || '';
+    
+    console.log('AI Response received, parsing...');
 
-    console.log('AI Response:', aiContent);
-
-    // Parse AI response (try to extract JSON)
     let analysis;
     try {
-      // Try to find JSON in the response
       const jsonMatch = aiContent.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         analysis = JSON.parse(jsonMatch[0]);
       } else {
-        // Fallback if no JSON found
-        analysis = {
-          verdict: 'questionable',
-          confidence_score: 50,
-          flagged_ingredients: [],
-          analysis_notes: aiContent || 'Unable to parse AI response',
-          recommendations: 'Manual verification recommended'
-        };
+        throw new Error('No JSON found in AI response');
       }
     } catch (parseError) {
-      console.error('Failed to parse AI response:', parseError);
+      console.error('Failed to parse AI response as JSON:', parseError);
       analysis = {
         verdict: 'questionable',
         confidence_score: 50,
         flagged_ingredients: [],
-        analysis_notes: 'AI analysis completed but response format was unexpected',
-        recommendations: 'Manual verification recommended'
+        analysis_notes: aiContent || 'Analysis completed but formatting was unclear.',
+        recommendations: 'Please verify ingredients with a halal certification authority.'
       };
     }
 
+    const finalResponse = {
+      ...analysis,
+      ai_explanation: aiContent,
+      analysis_method: 'ai_analysis',
+      verification_links: [
+        `https://verifyhalal.com/product-result.html?keyword=${productName}`,
+        'https://world.openfoodfacts.org/product/' + (brand || '').toLowerCase().replace(/\s+/g, '-')
+      ]
+    };
+
+    // Store verdict with service role
+    await storeVerdict(barcode || productName, brand, finalResponse);
+
+    console.log(`Analysis complete: ${finalResponse.verdict} (${finalResponse.confidence_score}% confidence)`);
+
     return new Response(
-      JSON.stringify({
-        ...analysis,
-        ai_explanation: aiContent,
-        analysis_method: 'ai_analysis',
-        is_certified: false,
-        verification_links: [
-          `https://verifyhalal.com/product-result.html?keyword=${productName || brand}`,
-          'https://world.openfoodfacts.org/product/' + (brand || '').toLowerCase().replace(/\s+/g, '-')
-        ]
-      }),
+      JSON.stringify(finalResponse),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('Error in analyze-ingredients-ai function:', error);
+    // Check if it's a validation error
+    if (error instanceof Error && error.message.includes('Validation error')) {
+      return new Response(
+        JSON.stringify({ error: error.message }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.error('Error in analyze-ingredients-ai:', error);
     return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Internal server error',
-        verdict: 'questionable',
-        analysis_notes: 'Analysis failed due to technical error'
-      }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
+
+// Helper function to store verdict in database with service role
+async function storeVerdict(barcodeOrId: string, brand: string | undefined, analysis: any) {
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('Missing Supabase credentials for storing verdict');
+      return;
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { persistSession: false }
+    });
+
+    // Use provided barcode or generate a unique identifier
+    const barcode = barcodeOrId.match(/^\d{8,14}$/) 
+      ? barcodeOrId 
+      : `analyzed-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    const { error: dbError } = await supabase
+      .from('verdicts')
+      .insert({
+        barcode: barcode,
+        verdict: analysis.verdict,
+        confidence_score: analysis.confidence_score || null,
+        flagged_ingredients: analysis.flagged_ingredients || [],
+        analysis_notes: analysis.analysis_notes || null,
+        ai_explanation: analysis.ai_explanation || null,
+        analysis_method: analysis.analysis_method || 'ai_analysis',
+        is_certified: analysis.is_certified || false,
+        cert_body: analysis.cert_body || null,
+        cert_country: analysis.cert_country || null,
+        cert_link: analysis.cert_link || null,
+        external_source: analysis.external_source || null,
+      });
+
+    if (dbError) {
+      console.error('Failed to store verdict in database:', dbError);
+    } else {
+      console.log('Verdict stored successfully in database');
+    }
+  } catch (error) {
+    console.error('Error storing verdict:', error);
+    // Don't throw - we still want to return the analysis to the user
+  }
+}
