@@ -1,5 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { checkRateLimit, getClientIp } from '../_shared/rateLimit.ts';
+import { validate, stringSchema, labelsSchema } from '../_shared/validation.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,7 +14,41 @@ serve(async (req) => {
   }
 
   try {
-    const { productName, barcode, brand, labels } = await req.json();
+    // Rate limiting check
+    const clientIp = getClientIp(req);
+    const rateLimit = checkRateLimit(clientIp, 'check-halal-certifications', {
+      maxRequests: 15,
+      windowMs: 60000 // 1 minute
+    });
+
+    if (!rateLimit.allowed) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Rate limit exceeded. Please try again later.',
+          resetAt: rateLimit.resetAt ? new Date(rateLimit.resetAt).toISOString() : undefined
+        }),
+        { 
+          status: 429,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+            'X-RateLimit-Remaining': '0',
+            ...(rateLimit.resetAt ? { 'X-RateLimit-Reset': String(rateLimit.resetAt) } : {})
+          }
+        }
+      );
+    }
+
+    // Input validation
+    const requestData = await req.json();
+    const validated = validate(requestData, {
+      productName: stringSchema('productName', 200).productName,
+      brand: stringSchema('brand', 100).brand,
+      barcode: stringSchema('barcode', 14).barcode,
+      labels: labelsSchema.labels
+    }) as any;
+    
+    const { productName, barcode, brand, labels } = validated;
     console.log('Checking certifications for:', { productName, barcode, brand });
 
     const certificationData: any = {
