@@ -48,7 +48,7 @@ A comprehensive web application that helps users verify the halal status of food
 - **TanStack Query** - Data fetching and caching
 - **html5-qrcode** - Barcode scanning
 
-### Backend (Lovable Cloud)
+### Backend 
 - **Supabase** - Backend as a Service
 - **Edge Functions (Deno)** - Serverless API endpoints
 - **PostgreSQL** - Database with Row-Level Security
