@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { checkRateLimit, getClientIp } from '../_shared/rateLimit.ts';
 import { validate, stringSchema, labelsSchema } from '../_shared/validation.ts';
 
@@ -50,6 +51,45 @@ serve(async (req) => {
     
     const { productName, barcode, brand, labels } = validated;
     console.log('Checking certifications for:', { productName, barcode, brand });
+
+    // Initialize Supabase client with service role for database writes
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Check cache first for existing non-expired certification data
+    const { data: cachedCert, error: cacheError } = await supabase
+      .from('certification_cache')
+      .select('*')
+      .eq('barcode', barcode)
+      .gt('expires_at', new Date().toISOString())
+      .order('cached_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (cachedCert && !cacheError) {
+      console.log('Cache hit for barcode:', barcode);
+      return new Response(
+        JSON.stringify({
+          is_certified: cachedCert.is_certified,
+          cert_body: cachedCert.cert_body,
+          cert_country: cachedCert.cert_country,
+          cert_link: cachedCert.cert_link,
+          external_source: cachedCert.external_source,
+          cached: true,
+          cached_at: cachedCert.cached_at
+        }),
+        { 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json',
+            'X-Cache': 'HIT'
+          } 
+        }
+      );
+    }
+
+    console.log('Cache miss for barcode:', barcode, 'Fetching from external sources...');
 
     const certificationData: any = {
       is_certified: false,
@@ -270,10 +310,42 @@ serve(async (req) => {
 
     console.log('Certification check result:', certificationData);
 
+    // Cache the result in database (using service role to bypass RLS)
+    try {
+      const { error: insertError } = await supabase
+        .from('certification_cache')
+        .insert({
+          barcode,
+          product_name: productName,
+          brand,
+          is_certified: certificationData.is_certified,
+          cert_body: certificationData.cert_body,
+          cert_country: certificationData.cert_country,
+          cert_link: certificationData.cert_link,
+          external_source: certificationData.external_source,
+          cached_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days from now
+        });
+
+      if (insertError) {
+        console.error('Failed to cache certification result:', insertError);
+        // Don't fail the request if caching fails, just log it
+      } else {
+        console.log('Successfully cached certification result for barcode:', barcode);
+      }
+    } catch (cacheErr) {
+      console.error('Error while caching certification:', cacheErr);
+      // Continue with response even if caching fails
+    }
+
     return new Response(
       JSON.stringify(certificationData),
       { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json',
+          'X-Cache': 'MISS'
+        },
         status: 200 
       }
     );
