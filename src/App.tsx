@@ -10,7 +10,6 @@
  * - QueryClient: Manages server state and API caching for product data
  * - BrowserRouter: Enables client-side routing without page reloads
  * - Sonner: Provides toast notifications for user feedback
- * - TooltipProvider: Enables tooltips throughout the app
  * 
  * Routes:
  * - / : Home page with barcode scanner and search
@@ -20,7 +19,6 @@
  */
 
 import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Home from "./pages/Home";
@@ -33,25 +31,23 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      {/* Toast notification system for user feedback */}
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          {/* Main search and scan page */}
-          <Route path="/" element={<Home />} />
-          
-          {/* Product verification results page */}
-          <Route path="/results/:barcode" element={<Results />} />
-          
-          {/* About HalalChecker information */}
-          <Route path="/about" element={<About />} />
-          
-          {/* 404 fallback for invalid routes */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    {/* Toast notification system for user feedback */}
+    <Sonner />
+    <BrowserRouter>
+      <Routes>
+        {/* Main search and scan page */}
+        <Route path="/" element={<Home />} />
+        
+        {/* Product verification results page */}
+        <Route path="/results/:barcode" element={<Results />} />
+        
+        {/* About HalalChecker information */}
+        <Route path="/about" element={<About />} />
+        
+        {/* 404 fallback for invalid routes */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </BrowserRouter>
   </QueryClientProvider>
 );
 
