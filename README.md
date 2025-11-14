@@ -1,4 +1,6 @@
-# HalalChecker 🌙
+# HalalChecker 
+![Uploading halalChecker_logo.png…]()
+
 
 A comprehensive web application that helps users verify the halal status of food products through barcode scanning, product search, and AI-powered ingredient analysis.
 
