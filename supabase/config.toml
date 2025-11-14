@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.search-products-by-name]
 verify_jwt = false
+
+[functions.check-halal-certifications]
+verify_jwt = false
