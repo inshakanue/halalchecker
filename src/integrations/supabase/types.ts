@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      certification_cache: {
+        Row: {
+          barcode: string
+          brand: string | null
+          cached_at: string
+          cert_body: string | null
+          cert_country: string | null
+          cert_link: string | null
+          created_at: string
+          expires_at: string
+          external_source: string | null
+          id: string
+          is_certified: boolean
+          product_name: string
+        }
+        Insert: {
+          barcode: string
+          brand?: string | null
+          cached_at?: string
+          cert_body?: string | null
+          cert_country?: string | null
+          cert_link?: string | null
+          created_at?: string
+          expires_at?: string
+          external_source?: string | null
+          id?: string
+          is_certified?: boolean
+          product_name: string
+        }
+        Update: {
+          barcode?: string
+          brand?: string | null
+          cached_at?: string
+          cert_body?: string | null
+          cert_country?: string | null
+          cert_link?: string | null
+          created_at?: string
+          expires_at?: string
+          external_source?: string | null
+          id?: string
+          is_certified?: boolean
+          product_name?: string
+        }
+        Relationships: []
+      }
       product_cache: {
         Row: {
           barcode: string

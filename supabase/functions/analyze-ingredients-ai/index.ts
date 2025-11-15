@@ -186,13 +186,12 @@ Provide a thorough halal analysis in JSON format. Be specific about E-numbers an
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'openai/gpt-5-mini',
+        model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        temperature: 0.3,
-        max_tokens: 1000,
+        max_completion_tokens: 1000,
       }),
     });
 
