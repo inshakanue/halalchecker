@@ -223,9 +223,21 @@ Provide a thorough halal analysis in JSON format. Be specific about E-numbers an
 
     let analysis;
     try {
-      const jsonMatch = aiContent.match(/\{[\s\S]*\}/);
+      // Clean the AI response of control characters and markdown
+      const cleanContent = aiContent
+        .replace(/```json\s*/gi, '')
+        .replace(/```\s*/g, '')
+        .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
+        .trim();
+      
+      const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         analysis = JSON.parse(jsonMatch[0]);
+        
+        // Ensure confidence_score is between 0-100 and is an integer
+        if (analysis.confidence_score) {
+          analysis.confidence_score = Math.min(100, Math.max(0, Math.round(analysis.confidence_score)));
+        }
       } else {
         throw new Error('No JSON found in AI response');
       }
@@ -235,7 +247,7 @@ Provide a thorough halal analysis in JSON format. Be specific about E-numbers an
         verdict: 'questionable',
         confidence_score: 50,
         flagged_ingredients: [],
-        analysis_notes: aiContent || 'Analysis completed but formatting was unclear.',
+        analysis_notes: 'AI analysis completed. Some ingredients may require further verification with a halal certification authority.',
         recommendations: 'Please verify ingredients with a halal certification authority.'
       };
     }

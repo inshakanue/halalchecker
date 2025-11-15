@@ -391,7 +391,21 @@ export default function Results() {
     if (verdict.verdict === "halal" && verdict.is_certified) {
       return `Product is certified halal by ${verdict.cert_body || "a recognized certification body"} for ${verdict.cert_country || "the region"}.`;
     }
-    return verdict.analysis_notes;
+    
+    // Ensure we always have a readable message
+    if (verdict.analysis_notes && typeof verdict.analysis_notes === 'string') {
+      return verdict.analysis_notes;
+    }
+    
+    // Fallback messages based on verdict
+    if (verdict.verdict === "halal") {
+      return "Based on the ingredients list, this product appears to be halal. However, we recommend verifying with official certification for certainty.";
+    } else if (verdict.verdict === "not_halal") {
+      return "This product contains ingredients that are not permissible according to Islamic dietary laws.";
+    } else {
+      // For questionable, unclear, or any other verdict
+      return "Some ingredients in this product require further verification. We recommend checking with a halal certification authority.";
+    }
   };
 
   return (
